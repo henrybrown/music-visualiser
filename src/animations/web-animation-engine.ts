@@ -1,4 +1,4 @@
-import type { AnimationDefinition, AnimationTransition } from "./animation-types";
+import type { AnimationDefinition, AnimationTransition } from './animation-types';
 
 export interface EntityContext {
   [key: string]: unknown;
@@ -9,77 +9,46 @@ export interface WebAnimationEngine {
     entityId: string,
     elementId: string,
     element: HTMLElement,
-    animations: Record<string, AnimationDefinition>,
+    animations: Record<string, AnimationDefinition>
   ) => void;
   unregister: (entityId: string, elementId: string) => void;
   playTransitions: (
     transitions: Map<string, AnimationTransition>,
-    getIndex?: (entityId: string) => number,
+    getIndex?: (entityId: string) => number
   ) => Promise<void>;
   cancelAll: () => void;
   updateEntityContext: (entityId: string, context: EntityContext) => void;
   getEntityContext: (entityId: string) => EntityContext | undefined;
-  getDebugInfo: () => {
-    registrySize: number;
-    entities: string[];
-    runningAnimations: number;
-    contexts: Map<string, EntityContext>;
+  getEngineInfo: () => {
+    registry: Map<string, Map<string, { element: HTMLElement; animations: Record<string, AnimationDefinition> }>>;
+    runningAnimations: Map<string, Animation>;
+    entityContexts: Map<string, EntityContext>;
   };
 }
 
-export function createWebAnimationEngine(engineId: string = "default"): WebAnimationEngine {
+export function createWebAnimationEngine(engineId: string = 'default'): WebAnimationEngine {
   const registry = new Map<
     string,
     Map<string, { element: HTMLElement; animations: Record<string, AnimationDefinition> }>
   >();
-
   const runningAnimations = new Map<string, Animation>();
   const entityContexts = new Map<string, EntityContext>();
-
-  // For devtools compatibility
-  const elementRegistry = new Map<
-    HTMLElement,
-    {
-      animations: Record<string, AnimationDefinition>;
-      metadata: {
-        elementId: string;
-        entityId: string;
-        tagName: string;
-        className: string;
-      };
-    }
-  >();
 
   const register = (
     entityId: string,
     elementId: string,
     element: HTMLElement,
-    animations: Record<string, AnimationDefinition>,
+    animations: Record<string, AnimationDefinition>
   ) => {
     if (!registry.has(entityId)) {
       registry.set(entityId, new Map());
     }
     registry.get(entityId)!.set(elementId, { element, animations });
-
-    // Register for devtools
-    elementRegistry.set(element, {
-      animations,
-      metadata: {
-        elementId,
-        entityId,
-        tagName: element.tagName,
-        className: element.className,
-      },
-    });
   };
 
   const unregister = (entityId: string, elementId: string) => {
     const entityRegistry = registry.get(entityId);
     if (entityRegistry) {
-      const data = entityRegistry.get(elementId);
-      if (data) {
-        elementRegistry.delete(data.element);
-      }
       entityRegistry.delete(elementId);
       if (entityRegistry.size === 0) {
         registry.delete(entityId);
@@ -99,7 +68,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
   const playTransitions = async (
     transitions: Map<string, AnimationTransition>,
-    getIndex?: (entityId: string) => number,
+    getIndex?: (entityId: string) => number
   ): Promise<void> => {
     const promises: Promise<void>[] = [];
 
@@ -122,7 +91,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
         const animKey = `${entityId}-${elementId}-${transition.event}`;
         const existing = runningAnimations.get(animKey);
 
-        if (existing && existing.playState === "running") {
+        if (existing && existing.playState === 'running') {
           return;
         }
 
@@ -141,7 +110,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
           },
           () => {
             runningAnimations.delete(animKey);
-          },
+          }
         );
 
         promises.push(animationPromise);
@@ -156,29 +125,19 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
     runningAnimations.clear();
   };
 
-  const getDebugInfo = () => ({
-    registrySize: registry.size,
-    entities: Array.from(registry.keys()),
-    runningAnimations: runningAnimations.size,
-    contexts: new Map(entityContexts),
+  const getEngineInfo = () => ({
+    registry: new Map(registry),
+    runningAnimations: new Map(runningAnimations),
+    entityContexts: new Map(entityContexts),
   });
 
-  const engine: WebAnimationEngine = {
+  return {
     register,
     unregister,
     playTransitions,
     cancelAll,
     updateEntityContext,
     getEntityContext,
-    getDebugInfo,
+    getEngineInfo,
   };
-
-  // Expose internal data for devtools (read-only)
-  (engine as any)._devtoolsData = {
-    elementRegistry,
-    entityContexts,
-    runningAnimations,
-  };
-
-  return engine;
 }
