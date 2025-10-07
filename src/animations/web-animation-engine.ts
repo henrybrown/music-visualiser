@@ -1,16 +1,20 @@
-import type { AnimationDefinition, AnimationMetadata, AnimationTransition } from './animation-types';
+import type {
+  AnimationDefinition,
+  AnimationMetadata,
+  AnimationTransition,
+} from "./animation-types";
 
 export interface WebAnimationEngine {
   register: (
     entityId: string,
     elementId: string,
     element: HTMLElement,
-    animations: Record<string, AnimationDefinition>
+    animations: Record<string, AnimationDefinition>,
   ) => void;
   unregister: (entityId: string, elementId: string) => void;
   playTransitions: (
     transitions: Map<string, AnimationTransition>,
-    getIndex?: (entityId: string) => number
+    getIndex?: (entityId: string) => number,
   ) => Promise<void>;
   cancelAll: () => void;
 }
@@ -40,7 +44,7 @@ export function createWebAnimationEngine(): WebAnimationEngine {
     entityId: string,
     elementId: string,
     element: HTMLElement,
-    animations: Record<string, AnimationDefinition>
+    animations: Record<string, AnimationDefinition>,
   ) => {
     if (!registry.has(entityId)) {
       registry.set(entityId, new Map());
@@ -60,7 +64,7 @@ export function createWebAnimationEngine(): WebAnimationEngine {
 
   const playTransitions = async (
     transitions: Map<string, AnimationTransition>,
-    getIndex?: (entityId: string) => number
+    getIndex?: (entityId: string) => number,
   ): Promise<void> => {
     const promises: Promise<void>[] = [];
 
@@ -78,7 +82,7 @@ export function createWebAnimationEngine(): WebAnimationEngine {
         const animDef = animations[transition.event];
         if (!animDef) {
           console.warn(
-            `[WebAnimationEngine] No animation for "${transition.event}" on ${elementId}`
+            `[WebAnimationEngine] No animation for "${transition.event}" on ${elementId}`,
           );
           return;
         }
@@ -86,7 +90,7 @@ export function createWebAnimationEngine(): WebAnimationEngine {
         const animKey = `${entityId}-${elementId}-${transition.event}`;
         const existing = runningAnimations.get(animKey);
 
-        if (existing && existing.playState === 'running') {
+        if (existing && existing.playState === "running") {
           return;
         }
 
@@ -105,7 +109,7 @@ export function createWebAnimationEngine(): WebAnimationEngine {
           },
           () => {
             runningAnimations.delete(animKey);
-          }
+          },
         );
 
         promises.push(animationPromise);
