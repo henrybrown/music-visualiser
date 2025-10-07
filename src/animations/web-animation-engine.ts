@@ -1,8 +1,8 @@
-import type {
-  AnimationDefinition,
-  AnimationMetadata,
-  AnimationTransition,
-} from "./animation-types";
+import type { AnimationDefinition, AnimationTransition } from "./animation-types";
+
+export interface EntityContext {
+  [key: string]: unknown;
+}
 
 export interface WebAnimationEngine {
   register: (
@@ -17,28 +17,38 @@ export interface WebAnimationEngine {
     getIndex?: (entityId: string) => number,
   ) => Promise<void>;
   cancelAll: () => void;
+  updateEntityContext: (entityId: string, context: EntityContext) => void;
+  getEntityContext: (entityId: string) => EntityContext | undefined;
+  getDebugInfo: () => {
+    registrySize: number;
+    entities: string[];
+    runningAnimations: number;
+    contexts: Map<string, EntityContext>;
+  };
 }
 
-/**
- * Creates a generic Web Animation API engine for managing element animations
- *
- * The engine operates on entities (e.g., cards, players, UI elements) that can have
- * multiple animated elements (e.g., container, overlay, badge). Each element registers
- * with animation definitions keyed by event names (e.g., "deal", "select", "reveal").
- *
- * When transitions are played, the engine:
- * 1. Looks up all elements for each entity
- * 2. Finds the animation definition matching the event name
- * 3. Plays animations with optional stagger based on entity index
- * 4. Returns a Promise that resolves when all animations complete
- */
-export function createWebAnimationEngine(): WebAnimationEngine {
+export function createWebAnimationEngine(engineId: string = "default"): WebAnimationEngine {
   const registry = new Map<
     string,
     Map<string, { element: HTMLElement; animations: Record<string, AnimationDefinition> }>
   >();
 
   const runningAnimations = new Map<string, Animation>();
+  const entityContexts = new Map<string, EntityContext>();
+
+  // For devtools compatibility
+  const elementRegistry = new Map<
+    HTMLElement,
+    {
+      animations: Record<string, AnimationDefinition>;
+      metadata: {
+        elementId: string;
+        entityId: string;
+        tagName: string;
+        className: string;
+      };
+    }
+  >();
 
   const register = (
     entityId: string,
@@ -50,16 +60,41 @@ export function createWebAnimationEngine(): WebAnimationEngine {
       registry.set(entityId, new Map());
     }
     registry.get(entityId)!.set(elementId, { element, animations });
+
+    // Register for devtools
+    elementRegistry.set(element, {
+      animations,
+      metadata: {
+        elementId,
+        entityId,
+        tagName: element.tagName,
+        className: element.className,
+      },
+    });
   };
 
   const unregister = (entityId: string, elementId: string) => {
     const entityRegistry = registry.get(entityId);
     if (entityRegistry) {
+      const data = entityRegistry.get(elementId);
+      if (data) {
+        elementRegistry.delete(data.element);
+      }
       entityRegistry.delete(elementId);
       if (entityRegistry.size === 0) {
         registry.delete(entityId);
+        entityContexts.delete(entityId);
       }
     }
+  };
+
+  const updateEntityContext = (entityId: string, context: EntityContext) => {
+    const existing = entityContexts.get(entityId) || {};
+    entityContexts.set(entityId, { ...existing, ...context });
+  };
+
+  const getEntityContext = (entityId: string) => {
+    return entityContexts.get(entityId);
   };
 
   const playTransitions = async (
@@ -72,7 +107,7 @@ export function createWebAnimationEngine(): WebAnimationEngine {
       const entityElements = registry.get(entityId);
 
       if (!entityElements) {
-        console.warn(`[WebAnimationEngine] No elements registered for entity: ${entityId}`);
+        console.warn(`[AnimationEngine] No elements registered for entity: ${entityId}`);
         return;
       }
 
@@ -81,9 +116,6 @@ export function createWebAnimationEngine(): WebAnimationEngine {
       entityElements.forEach(({ element, animations }, elementId) => {
         const animDef = animations[transition.event];
         if (!animDef) {
-          console.warn(
-            `[WebAnimationEngine] No animation for "${transition.event}" on ${elementId}`,
-          );
           return;
         }
 
@@ -95,9 +127,9 @@ export function createWebAnimationEngine(): WebAnimationEngine {
         }
 
         const staggerDelay = index * 50;
-        const options = {
+        const options: KeyframeAnimationOptions = {
           ...animDef.options,
-          delay: (animDef.options.delay ?? 0) + staggerDelay,
+          delay: (animDef.options?.delay ?? 0) + staggerDelay,
         };
 
         const animation = element.animate(animDef.keyframes, options);
@@ -124,5 +156,29 @@ export function createWebAnimationEngine(): WebAnimationEngine {
     runningAnimations.clear();
   };
 
-  return { register, unregister, playTransitions, cancelAll };
+  const getDebugInfo = () => ({
+    registrySize: registry.size,
+    entities: Array.from(registry.keys()),
+    runningAnimations: runningAnimations.size,
+    contexts: new Map(entityContexts),
+  });
+
+  const engine: WebAnimationEngine = {
+    register,
+    unregister,
+    playTransitions,
+    cancelAll,
+    updateEntityContext,
+    getEntityContext,
+    getDebugInfo,
+  };
+
+  // Expose internal data for devtools (read-only)
+  (engine as any)._devtoolsData = {
+    elementRegistry,
+    entityContexts,
+    runningAnimations,
+  };
+
+  return engine;
 }
