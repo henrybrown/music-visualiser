@@ -1,4 +1,4 @@
-import type { AnimationDefinition, AnimationTransition } from './animation-types';
+import type { AnimationDefinition, AnimationTransition } from "./animation-types";
 
 export interface EntityContext {
   [key: string]: unknown;
@@ -9,24 +9,27 @@ export interface WebAnimationEngine {
     entityId: string,
     elementId: string,
     element: HTMLElement,
-    animations: Record<string, AnimationDefinition>
+    animations: Record<string, AnimationDefinition>,
   ) => void;
   unregister: (entityId: string, elementId: string) => void;
   playTransitions: (
     transitions: Map<string, AnimationTransition>,
-    getIndex?: (entityId: string) => number
+    getIndex?: (entityId: string) => number,
   ) => Promise<void>;
   cancelAll: () => void;
   updateEntityContext: (entityId: string, context: EntityContext) => void;
   getEntityContext: (entityId: string) => EntityContext | undefined;
   getEngineInfo: () => {
-    registry: Map<string, Map<string, { element: HTMLElement; animations: Record<string, AnimationDefinition> }>>;
+    registry: Map<
+      string,
+      Map<string, { element: HTMLElement; animations: Record<string, AnimationDefinition> }>
+    >;
     runningAnimations: Map<string, Animation>;
     entityContexts: Map<string, EntityContext>;
   };
 }
 
-export function createWebAnimationEngine(engineId: string = 'default'): WebAnimationEngine {
+export function createWebAnimationEngine(engineId: string = "default"): WebAnimationEngine {
   const registry = new Map<
     string,
     Map<string, { element: HTMLElement; animations: Record<string, AnimationDefinition> }>
@@ -38,7 +41,7 @@ export function createWebAnimationEngine(engineId: string = 'default'): WebAnima
     entityId: string,
     elementId: string,
     element: HTMLElement,
-    animations: Record<string, AnimationDefinition>
+    animations: Record<string, AnimationDefinition>,
   ) => {
     if (!registry.has(entityId)) {
       registry.set(entityId, new Map());
@@ -68,7 +71,7 @@ export function createWebAnimationEngine(engineId: string = 'default'): WebAnima
 
   const playTransitions = async (
     transitions: Map<string, AnimationTransition>,
-    getIndex?: (entityId: string) => number
+    getIndex?: (entityId: string) => number,
   ): Promise<void> => {
     const promises: Promise<void>[] = [];
 
@@ -91,17 +94,20 @@ export function createWebAnimationEngine(engineId: string = 'default'): WebAnima
         const animKey = `${entityId}-${elementId}-${transition.event}`;
         const existing = runningAnimations.get(animKey);
 
-        if (existing && existing.playState === 'running') {
+        if (existing && existing.playState === "running") {
           return;
         }
 
         const staggerDelay = index * 50;
+
+        console.log("[Animation Stagger Delay]", staggerDelay, entityId);
         const options: KeyframeAnimationOptions = {
           ...animDef.options,
           delay: (animDef.options?.delay ?? 0) + staggerDelay,
         };
 
         const animation = element.animate(animDef.keyframes, options);
+
         runningAnimations.set(animKey, animation);
 
         const animationPromise: Promise<void> = animation.finished.then(
@@ -110,7 +116,7 @@ export function createWebAnimationEngine(engineId: string = 'default'): WebAnima
           },
           () => {
             runningAnimations.delete(animKey);
-          }
+          },
         );
 
         promises.push(animationPromise);

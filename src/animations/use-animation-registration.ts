@@ -18,6 +18,11 @@ export function useAnimationRegistration(entityId: string, entityContext?: Entit
   // Sync context to engine
   useEffect(() => {
     if (entityContext) {
+      console.log('[AnimationReg] Syncing context', {
+        entityId,
+        hasContext: !!entityContext,
+        displayState: entityContext?.displayState
+      });
       engine.updateEntityContext(entityId, entityContext);
     }
   }, [engine, entityId, entityContext]);
@@ -29,8 +34,10 @@ export function useAnimationRegistration(entityId: string, entityContext?: Entit
       if (!callback) {
         callback = (element: HTMLElement | null) => {
           if (element) {
+            console.log('[AnimationReg] Registering element', { entityId, elementId });
             engine.register(entityId, elementId, element, animations);
           } else {
+            console.log('[AnimationReg] Unregistering element', { entityId, elementId });
             engine.unregister(entityId, elementId);
           }
         };
