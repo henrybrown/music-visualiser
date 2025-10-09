@@ -43,6 +43,8 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
     element: HTMLElement,
     animations: Record<string, AnimationDefinition>,
   ) => {
+    console.log(`[AnimationEngine:${engineId}] Registering`, { entityId, elementId });
+
     if (!registry.has(entityId)) {
       registry.set(entityId, new Map());
     }
@@ -50,6 +52,8 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
   };
 
   const unregister = (entityId: string, elementId: string) => {
+    console.log(`[AnimationEngine:${engineId}] Unregistering`, { entityId, elementId });
+
     const entityRegistry = registry.get(entityId);
     if (entityRegistry) {
       entityRegistry.delete(elementId);
@@ -79,7 +83,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const entityElements = registry.get(entityId);
 
       if (!entityElements) {
-        console.warn(`[AnimationEngine] No elements registered for entity: ${entityId}`);
+        console.warn(`[AnimationEngine:${engineId}] No elements registered for entity: ${entityId}`);
         return;
       }
 
@@ -100,7 +104,13 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
         const staggerDelay = index * 50;
 
-        console.log("[Animation Stagger Delay]", staggerDelay, entityId);
+        console.log(`[AnimationEngine:${engineId}] Playing animation`, {
+          entityId,
+          elementId,
+          event: transition.event,
+          staggerDelay,
+        });
+
         const options: KeyframeAnimationOptions = {
           ...animDef.options,
           delay: (animDef.options?.delay ?? 0) + staggerDelay,

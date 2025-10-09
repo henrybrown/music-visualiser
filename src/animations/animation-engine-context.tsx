@@ -1,34 +1,29 @@
-import { createContext, useContext, useRef, ReactNode } from 'react';
-import { createWebAnimationEngine } from './web-animation-engine';
-import type { WebAnimationEngine, EntityContext } from './web-animation-engine';
-import { DevToolsPanel } from './animation-devtools';
+import React, { createContext, useContext, useMemo, ReactNode } from 'react';
+import { createWebAnimationEngine, WebAnimationEngine } from './web-animation-engine';
+
+export type { EntityContext } from './web-animation-engine';
 
 const AnimationEngineContext = createContext<WebAnimationEngine | null>(null);
 
-// Re-export for convenience
-export type { EntityContext };
-
 interface AnimationEngineProviderProps {
   children: ReactNode;
+  engineId?: string;
 }
 
-/**
- * Provides animation engine instance to child components
- *
- * Includes devtools panel in development mode.
- */
-export function AnimationEngineProvider({ children }: AnimationEngineProviderProps) {
-  const engineRef = useRef(createWebAnimationEngine('board-engine'));
+export const AnimationEngineProvider: React.FC<AnimationEngineProviderProps> = ({
+  children,
+  engineId = 'default'
+}) => {
+  const engine = useMemo(() => createWebAnimationEngine(engineId), [engineId]);
 
   return (
-    <AnimationEngineContext.Provider value={engineRef.current}>
+    <AnimationEngineContext.Provider value={engine}>
       {children}
-      {process.env.NODE_ENV === 'development' && <DevToolsPanel />}
     </AnimationEngineContext.Provider>
   );
-}
+};
 
-export function useAnimationEngine(): WebAnimationEngine {
+export const useAnimationEngine = (): WebAnimationEngine => {
   const engine = useContext(AnimationEngineContext);
 
   if (!engine) {
@@ -36,4 +31,4 @@ export function useAnimationEngine(): WebAnimationEngine {
   }
 
   return engine;
-}
+};
