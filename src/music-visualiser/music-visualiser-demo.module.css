@@ -1,0 +1,104 @@
+/* music-visualizer-demo.module.css */
+.container {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.button {
+  padding: 0.5rem 1rem;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: opacity 0.2s ease;
+}
+
+.buttonPrimary {
+  background: #8b5cf6;
+}
+
+.buttonStop {
+  background: #ef4444;
+}
+
+.buttonDisabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.visualizerWrapper {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.visualizer {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: flex-end;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.frequencyLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding: 0 20px;
+  font-size: 0.7rem;
+  color: #64748b;
+  font-family: "Courier New", monospace;
+}
+
+.audioControls {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(139, 92, 246, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.audioControls audio {
+  width: 100%;
+  height: 32px;
+}
+
+.statusIndicator {
+  margin-left: auto;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.statusText {
+  color: #10b981;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.statusTextInactive {
+  color: #999;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
