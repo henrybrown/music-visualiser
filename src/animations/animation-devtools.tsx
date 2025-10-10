@@ -157,10 +157,16 @@ const EntityView: React.FC<{
   const isTransitioning = !!context.isTransitioning;
   const viewMode = typeof context.viewMode === 'string' ? context.viewMode : undefined;
 
+  const accentColor = isDark ? '#00ff88' : '#000';
+  const borderColorLight = isDark ? '#00ff8833' : '#ddd';
+  const borderColorLighter = isDark ? '#00ff8822' : '#e5e5e5';
+  const bgAccent = isDark ? 'rgba(0, 255, 136, 0.08)' : 'rgba(0, 0, 0, 0.05)';
+  const bgAccentLight = isDark ? 'rgba(0, 255, 136, 0.03)' : 'rgba(0, 0, 0, 0.02)';
+
   const styles = {
     container: {
       background: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.5)',
-      border: '1px solid #00ff8833',
+      border: `1px solid ${borderColorLight}`,
       borderRadius: '8px',
       marginBottom: '1rem',
       overflow: 'hidden',
@@ -172,7 +178,7 @@ const EntityView: React.FC<{
       justifyContent: 'space-between',
       padding: '0.75rem',
       cursor: 'pointer',
-      background: isExpanded ? 'rgba(0, 255, 136, 0.08)' : 'transparent',
+      background: isExpanded ? bgAccent : 'transparent',
       transition: 'background 0.2s',
     },
     title: {
@@ -183,7 +189,7 @@ const EntityView: React.FC<{
     },
     entityName: {
       fontWeight: 'bold' as const,
-      color: '#00ff88',
+      color: accentColor,
       fontSize: '1rem',
     },
     badges: {
@@ -200,12 +206,12 @@ const EntityView: React.FC<{
     },
     content: {
       padding: '0.75rem',
-      borderTop: '1px solid #00ff8822',
+      borderTop: `1px solid ${borderColorLighter}`,
       display: isExpanded ? 'block' : 'none',
     },
     contextSection: {
-      background: 'rgba(0, 255, 136, 0.03)',
-      border: '1px solid #00ff8822',
+      background: bgAccentLight,
+      border: `1px solid ${borderColorLighter}`,
       borderRadius: '6px',
       padding: '0.75rem',
       marginBottom: '1rem',
@@ -222,7 +228,7 @@ const EntityView: React.FC<{
       gap: '0.5rem',
     },
     expandIcon: {
-      color: '#00ff8866',
+      color: isDark ? '#00ff8866' : '#666',
       fontSize: '1.2rem',
       transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
       transition: 'transform 0.2s',
@@ -292,13 +298,13 @@ const EntityView: React.FC<{
       {isExpanded && (
         <div style={styles.content}>
           <div style={styles.contextSection}>
-            <h5 style={{ margin: '0 0 0.5rem 0', color: '#00ff88', fontSize: '0.8rem' }}>
+            <h5 style={{ margin: '0 0 0.5rem 0', color: accentColor, fontSize: '0.8rem' }}>
               Entity Context
             </h5>
             <div style={styles.contextGrid}>
               {Object.entries(context).map(([key, value]) => (
                 <div key={key}>
-                  <span style={{ color: '#00ff8866' }}>{key}: </span>
+                  <span style={{ color: isDark ? '#00ff8866' : '#666' }}>{key}: </span>
                   <span style={{ color: isDark ? '#fff' : '#000' }}>
                     {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                   </span>
@@ -307,7 +313,7 @@ const EntityView: React.FC<{
             </div>
           </div>
 
-          <h5 style={{ margin: '0 0 0.5rem 0', color: '#00ff88', fontSize: '0.8rem' }}>
+          <h5 style={{ margin: '0 0 0.5rem 0', color: accentColor, fontSize: '0.8rem' }}>
             Elements ({entity.elements.length})
           </h5>
           <div style={styles.elements}>
@@ -326,11 +332,14 @@ const ElementView: React.FC<{
   theme: string;
 }> = ({ element, theme }) => {
   const isDark = theme === 'dark';
+  const borderColor = element.isAnimating
+    ? '#00aaff'
+    : (isDark ? '#444' : '#ccc');
 
   const styles = {
     container: {
       background: isDark ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.8)',
-      border: `2px solid ${element.isAnimating ? '#00aaff' : '#444'}`,
+      border: `2px solid ${borderColor}`,
       borderRadius: '6px',
       padding: '0.75rem',
       display: 'flex',
@@ -353,8 +362,8 @@ const ElementView: React.FC<{
       marginTop: '0.25rem',
     },
     animationTag: {
-      background: 'rgba(0, 255, 136, 0.1)',
-      color: '#00ff88',
+      background: isDark ? 'rgba(0, 255, 136, 0.1)' : 'rgba(0, 0, 0, 0.08)',
+      color: isDark ? '#00ff88' : '#000',
       padding: '0.1rem 0.3rem',
       borderRadius: '3px',
       fontSize: '0.6rem',
@@ -385,6 +394,13 @@ const ElementView: React.FC<{
 };
 
 function getStyles(isDark: boolean, position: string) {
+  const accentColor = isDark ? '#00ff88' : '#000';
+  const borderColor = isDark ? '#00ff88' : '#333';
+  const borderColorLight = isDark ? '#00ff8833' : '#ddd';
+  const borderColorLighter = isDark ? '#00ff8822' : '#e5e5e5';
+  const bgAccent = isDark ? 'rgba(0, 255, 136, 0.05)' : 'rgba(0, 0, 0, 0.03)';
+  const bgAccentStrong = isDark ? 'rgba(0, 255, 136, 0.08)' : 'rgba(0, 0, 0, 0.05)';
+
   return {
     button: {
       position: 'fixed' as const,
@@ -393,8 +409,8 @@ function getStyles(isDark: boolean, position: string) {
       ...(position === 'top-right' && { top: '2rem', right: '2rem' }),
       ...(position === 'top-left' && { top: '2rem', left: '2rem' }),
       background: isDark ? '#0a0a0f' : '#fff',
-      color: '#00ff88',
-      border: '2px solid #00ff88',
+      color: accentColor,
+      border: `2px solid ${borderColor}`,
       borderRadius: '8px',
       padding: '0.75rem 1rem',
       fontWeight: 'bold' as const,
@@ -411,7 +427,7 @@ function getStyles(isDark: boolean, position: string) {
       bottom: 0,
       width: '480px',
       background: isDark ? 'linear-gradient(to left, #0a0a0f 0%, #1a1a1f 100%)' : '#f5f5f5',
-      borderLeft: '2px solid #00ff88',
+      borderLeft: `2px solid ${borderColor}`,
       overflowY: 'auto' as const,
       zIndex: 9999,
       boxShadow: '-4px 0 20px rgba(0, 0, 0, 0.3)',
@@ -423,8 +439,8 @@ function getStyles(isDark: boolean, position: string) {
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '1rem',
-      borderBottom: '1px solid #00ff8833',
-      background: 'rgba(0, 255, 136, 0.05)',
+      borderBottom: `1px solid ${borderColorLight}`,
+      background: bgAccent,
       position: 'sticky' as const,
       top: 0,
       zIndex: 1,
@@ -432,13 +448,13 @@ function getStyles(isDark: boolean, position: string) {
     },
     title: {
       margin: 0,
-      color: '#00ff88',
+      color: accentColor,
       fontSize: '1.2rem',
     },
     closeButton: {
       background: 'transparent',
       border: 'none',
-      color: '#00ff8866',
+      color: isDark ? '#00ff8866' : '#666',
       fontSize: '1.5rem',
       cursor: 'pointer',
       padding: 0,
@@ -449,10 +465,10 @@ function getStyles(isDark: boolean, position: string) {
       display: 'flex',
       gap: '1rem',
       padding: '0.75rem 1rem',
-      background: 'rgba(0, 255, 136, 0.08)',
-      borderBottom: '1px solid #00ff8822',
+      background: bgAccentStrong,
+      borderBottom: `1px solid ${borderColorLighter}`,
       fontSize: '0.85rem',
-      color: isDark ? '#88ffcc' : '#006644',
+      color: isDark ? '#88ffcc' : '#333',
     },
     content: {
       flex: 1,

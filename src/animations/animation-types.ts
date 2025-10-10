@@ -1,7 +1,11 @@
-export interface AnimationDefinition {
+export interface AnimationDefinitionStatic {
   keyframes: Keyframe[];
   options?: KeyframeAnimationOptions;
 }
+
+export type AnimationDefinition =
+  | AnimationDefinitionStatic
+  | ((context: Record<string, unknown>) => AnimationDefinitionStatic);
 
 export interface AnimationMetadata {
   elementId: string;

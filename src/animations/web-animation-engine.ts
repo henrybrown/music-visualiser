@@ -90,10 +90,16 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const index = getIndex?.(entityId) ?? 0;
 
       entityElements.forEach(({ element, animations }, elementId) => {
-        const animDef = animations[transition.event];
-        if (!animDef) {
+        const animDefOrFn = animations[transition.event];
+        if (!animDefOrFn) {
           return;
         }
+
+        // Resolve function or use static definition
+        const context = entityContexts.get(entityId) || {};
+        const animDef = typeof animDefOrFn === 'function'
+          ? animDefOrFn(context)
+          : animDefOrFn;
 
         const animKey = `${entityId}-${elementId}-${transition.event}`;
         const existing = runningAnimations.get(animKey);
@@ -109,6 +115,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
           elementId,
           event: transition.event,
           staggerDelay,
+          resolvedFromFunction: typeof animDefOrFn === 'function',
         });
 
         const options: KeyframeAnimationOptions = {
