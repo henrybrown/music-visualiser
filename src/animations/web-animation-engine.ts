@@ -83,7 +83,9 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const entityElements = registry.get(entityId);
 
       if (!entityElements) {
-        console.warn(`[AnimationEngine:${engineId}] No elements registered for entity: ${entityId}`);
+        console.warn(
+          `[AnimationEngine:${engineId}] No elements registered for entity: ${entityId}`,
+        );
         return;
       }
 
@@ -97,15 +99,18 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
         // Resolve function or use static definition
         const context = entityContexts.get(entityId) || {};
-        const animDef = typeof animDefOrFn === 'function'
-          ? animDefOrFn(context)
-          : animDefOrFn;
+        const animDef = typeof animDefOrFn === "function" ? animDefOrFn(context) : animDefOrFn;
 
         const animKey = `${entityId}-${elementId}-${transition.event}`;
         const existing = runningAnimations.get(animKey);
 
+        // Prevent jerky interruptions: commit current position before starting new animation
         if (existing && existing.playState === "running") {
-          return;
+          try {
+            return;
+            //existing.commitStyles(); // Freeze where we are to avoid jump
+            // existing.cancel(); // Stop old animation
+          } catch (e) {}
         }
 
         const staggerDelay = index * 50;
@@ -115,7 +120,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
           elementId,
           event: transition.event,
           staggerDelay,
-          resolvedFromFunction: typeof animDefOrFn === 'function',
+          resolvedFromFunction: typeof animDefOrFn === "function",
         });
 
         const options: KeyframeAnimationOptions = {
@@ -133,6 +138,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
           },
           () => {
             runningAnimations.delete(animKey);
+            animation.commitStyles;
           },
         );
 
