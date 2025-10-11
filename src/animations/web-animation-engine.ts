@@ -43,8 +43,6 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
     element: HTMLElement,
     animations: Record<string, AnimationDefinition>,
   ) => {
-    console.log(`[AnimationEngine:${engineId}] Registering`, { entityId, elementId });
-
     if (!registry.has(entityId)) {
       registry.set(entityId, new Map());
     }
@@ -52,8 +50,6 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
   };
 
   const unregister = (entityId: string, elementId: string) => {
-    console.log(`[AnimationEngine:${engineId}] Unregistering`, { entityId, elementId });
-
     const entityRegistry = registry.get(entityId);
     if (entityRegistry) {
       entityRegistry.delete(elementId);
@@ -115,14 +111,6 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
         const staggerDelay = index * 50;
 
-        console.log(`[AnimationEngine:${engineId}] Playing animation`, {
-          entityId,
-          elementId,
-          event: transition.event,
-          staggerDelay,
-          resolvedFromFunction: typeof animDefOrFn === "function",
-        });
-
         const options: KeyframeAnimationOptions = {
           ...animDef.options,
           delay: (animDef.options?.delay ?? 0) + staggerDelay,
@@ -135,10 +123,10 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
         const animationPromise: Promise<void> = animation.finished.then(
           () => {
             runningAnimations.delete(animKey);
+            animation.commitStyles();
           },
           () => {
             runningAnimations.delete(animKey);
-            animation.commitStyles;
           },
         );
 

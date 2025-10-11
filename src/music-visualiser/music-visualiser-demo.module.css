@@ -1,104 +1,338 @@
-/* music-visualizer-demo.module.css */
 .container {
   width: 100%;
   max-width: 900px;
   margin: 0 auto;
+  padding: 1.5rem;
+  background: #ffffff;
+  min-height: 100vh;
+}
+
+.visualizerWrapper {
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 12px;
+  padding: 2rem 1.5rem 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-bottom: 1rem;
+}
+
+.visualizer {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 1rem;
+  gap: 3px;
+  overflow: visible;
+}
+
+.frequencyLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  padding: 0 1rem;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-weight: 500;
 }
 
 .controls {
   display: flex;
   gap: 0.75rem;
   align-items: center;
-  margin-bottom: 1rem;
-}
-
-.button {
-  padding: 0.5rem 1rem;
-  color: #fff;
-  border: none;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.02);
   border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
-  transition: opacity 0.2s ease;
-}
-
-.buttonPrimary {
-  background: #8b5cf6;
-}
-
-.buttonStop {
-  background: #ef4444;
-}
-
-.buttonDisabled {
-  background: #94a3b8;
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.visualizerWrapper {
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-.visualizer {
-  position: relative;
-  width: 100%;
-  height: 400px;
-  background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%);
-  border-radius: 12px;
-  display: flex;
-  align-items: flex-end;
-  padding: 20px;
-  overflow: hidden;
+.button {
+  padding: 0.6rem 1.5rem;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  min-width: 100px;
 }
 
-.frequencyLabels {
+.buttonPlay {
+  background: #10b981;
+}
+
+.buttonPlay:hover:not(.buttonDisabled) {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.buttonStop {
+  background: #f59e0b;
+}
+
+.buttonStop:hover:not(.buttonDisabled) {
+  background: #d97706;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.buttonDisabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.buttonSettings {
+  background: #3b82f6;
+  margin-left: auto;
+}
+
+.buttonSettings:hover:not(.buttonDisabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.buttonReset {
+  background: #64748b;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.buttonReset:hover {
+  background: #475569;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
+}
+
+.controlPanel {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.controlGroup {
+  margin-bottom: 1.25rem;
+}
+
+.controlGroup:last-of-type {
+  margin-bottom: 0;
+}
+
+.controlLabel {
+  display: block;
+  color: #1e293b;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
   display: flex;
   justify-content: space-between;
-  margin-top: 0.5rem;
-  padding: 0 20px;
-  font-size: 0.7rem;
-  color: #64748b;
-  font-family: "Courier New", monospace;
-}
-
-.audioControls {
-  margin-top: 0.75rem;
-  padding: 0.5rem;
-  background: rgba(139, 92, 246, 0.05);
-  border-radius: 8px;
-  border: 1px solid rgba(139, 92, 246, 0.1);
-}
-
-.audioControls audio {
-  width: 100%;
-  height: 32px;
-}
-
-.statusIndicator {
-  margin-left: auto;
-  padding: 0.5rem 1rem;
-  background: rgba(0, 0, 0, 0.04);
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  display: flex;
   align-items: center;
-  gap: 0.5rem;
 }
 
-.statusText {
-  color: #10b981;
-  font-size: 0.85rem;
-  font-weight: 500;
+.controlHint {
+  color: #64748b;
+  font-weight: 400;
+  font-size: 0.75rem;
+  font-style: italic;
 }
 
-.statusTextInactive {
-  color: #999;
+.controlSelect {
+  width: 100%;
+  padding: 0.6rem;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  color: #1e293b;
   font-size: 0.85rem;
-  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.controlSelect:hover:not(:disabled) {
+  border-color: rgba(0, 0, 0, 0.25);
+  background: #f8fafc;
+}
+
+.controlSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.controlSelect option {
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.controlSlider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.1);
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.controlSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s ease;
+}
+
+.controlSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 12px rgba(59, 130, 246, 0.6);
+}
+
+.controlSlider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s ease;
+}
+
+.controlSlider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 12px rgba(59, 130, 246, 0.6);
+}
+
+.dualSliderContainer {
+  position: relative;
+  height: 40px;
+  width: 100%;
+}
+
+.dualSliderTrack {
+  position: absolute;
+  width: 100%;
+  height: 6px;
+  top: 17px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.dualSliderRange {
+  position: absolute;
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 3px;
+}
+
+.dualSliderThumb {
+  position: absolute;
+  width: 100%;
+  height: 40px;
+  top: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.dualSliderThumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  pointer-events: all;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s ease;
+}
+
+.dualSliderThumb::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 12px rgba(59, 130, 246, 0.6);
+}
+
+.dualSliderThumb::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  pointer-events: all;
+  border: none;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s ease;
+}
+
+.dualSliderThumb::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 12px rgba(59, 130, 246, 0.6);
+}
+
+.barContainer {
+  position: relative;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.barContainer:hover {
+  z-index: 10000;
+}
+
+.barContainer::before {
+  content: attr(data-frequency);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: rgba(0, 0, 0, 0.95);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 10001;
+  font-family: 'Monaco', 'Courier New', monospace;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.barContainer::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-2px);
+  border: 6px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.95);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 10001;
+}
+
+.barContainer:hover::before,
+.barContainer:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.barContainer:hover::after {
+  transform: translateX(-50%) translateY(0px);
 }

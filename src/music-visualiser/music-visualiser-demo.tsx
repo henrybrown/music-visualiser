@@ -10,53 +10,90 @@ import styles from "./music-visualiser-demo.module.css";
 // Visualizer constants
 const FREQUENCY_RANGES = [
   // Bass region - tight spacing for detail
-  [20, 40],      // Bar 0: Deep sub-bass
-  [40, 60],      // Bar 1: Sub-bass
-  [60, 80],      // Bar 2: Bass
-  [80, 100],     // Bar 3: Bass
-  [100, 125],    // Bar 4: Bass
-  [125, 150],    // Bar 5: Bass
-  [150, 180],    // Bar 6: Bass
-  [180, 220],    // Bar 7: Upper bass
-  [220, 270],    // Bar 8: Low-mids
-  [270, 330],    // Bar 9: Low-mids
-  [330, 400],    // Bar 10: Low-mids
-  [400, 480],    // Bar 11: Low-mids
+  [20, 40], // Bar 0: Deep sub-bass
+  [40, 60], // Bar 1: Sub-bass
+  [60, 80], // Bar 2: Bass
+  [80, 100], // Bar 3: Bass
+  [100, 125], // Bar 4: Bass
+  [125, 150], // Bar 5: Bass
+  [150, 180], // Bar 6: Bass
+  [180, 220], // Bar 7: Upper bass
+  [220, 270], // Bar 8: Low-mids
+  [270, 330], // Bar 9: Low-mids
+  [330, 400], // Bar 10: Low-mids
+  [400, 480], // Bar 11: Low-mids
 
   // Mid range - medium spacing
-  [480, 570],    // Bar 12: Mids
-  [570, 680],    // Bar 13: Mids
-  [680, 810],    // Bar 14: Mids
-  [810, 1000],   // Bar 15: Mids
-  [1000, 1200],  // Bar 16: Mids
-  [1200, 1500],  // Bar 17: Upper-mids
-  [1500, 1800],  // Bar 18: Upper-mids
-  [1800, 2200],  // Bar 19: Upper-mids
-  [2200, 2700],  // Bar 20: Upper-mids
-  [2700, 3300],  // Bar 21: Upper-mids
+  [480, 570], // Bar 12: Mids
+  [570, 680], // Bar 13: Mids
+  [680, 810], // Bar 14: Mids
+  [810, 1000], // Bar 15: Mids
+  [1000, 1200], // Bar 16: Mids
+  [1200, 1500], // Bar 17: Upper-mids
+  [1500, 1800], // Bar 18: Upper-mids
+  [1800, 2200], // Bar 19: Upper-mids
+  [2200, 2700], // Bar 20: Upper-mids
+  [2700, 3300], // Bar 21: Upper-mids
 
   // High range - wider spacing
-  [3300, 4000],  // Bar 22: Highs
-  [4000, 5000],  // Bar 23: Highs
-  [5000, 6200],  // Bar 24: Highs
-  [6200, 7600],  // Bar 25: Highs
-  [7600, 9300],  // Bar 26: Ultra-highs
+  [3300, 4000], // Bar 22: Highs
+  [4000, 5000], // Bar 23: Highs
+  [5000, 6200], // Bar 24: Highs
+  [6200, 7600], // Bar 25: Highs
+  [7600, 9300], // Bar 26: Ultra-highs
   [9300, 11500], // Bar 27: Ultra-highs
-  [11500, 14000],// Bar 28: Ultra-highs
-  [14000, 17000],// Bar 29: Ultra-highs
-  [17000, 22000],// Bar 30: Ultra-highs
+  [11500, 14000], // Bar 28: Ultra-highs
+  [14000, 17000], // Bar 29: Ultra-highs
+  [17000, 22000], // Bar 30: Ultra-highs
 ] as const;
 
-const BAR_COUNT = FREQUENCY_RANGES.length;
+// Audio analysis configuration
+const FFT_SIZE = 2048; // Number of samples for FFT (higher = better frequency resolution, slower updates)
+const SAMPLE_RATE = 44100; // Audio sample rate in Hz (CD quality standard)
+const SMOOTHING_TIME_CONSTANT = 0.3; // Time averaging (0-1, lower = more responsive, higher = smoother)
+const MIN_DECIBELS = -100; // Minimum power level in dB (quietest sound to show, more negative = picks up quieter sounds)
+const MAX_DECIBELS = 0; // Maximum power level in dB (loudest sound, 0 = digital maximum)
+
+/**
+ * Subdivide frequency ranges to create more bars
+ * @param multiplier - 1 = normal (31 bars), 2 = double (62 bars), 4 = quadruple (124 bars)
+ */
+function subdivideFrequencyRanges(multiplier: 1 | 2 | 4): readonly (readonly [number, number])[] {
+  if (multiplier === 1) return FREQUENCY_RANGES;
+
+  const subdivided: [number, number][] = [];
+
+  for (const [minHz, maxHz] of FREQUENCY_RANGES) {
+    const rangeSize = (maxHz - minHz) / multiplier;
+
+    for (let i = 0; i < multiplier; i++) {
+      const subMin = minHz + rangeSize * i;
+      const subMax = minHz + rangeSize * (i + 1);
+      subdivided.push([Math.round(subMin), Math.round(subMax)]);
+    }
+  }
+
+  return subdivided;
+}
+
 const BASE_HEIGHT = 30; // Minimum height for bars (px)
 const CAP_HEIGHT = 6; // Height of the cap element on top of each bar
-const UPDATE_INTERVAL_MS = 150; // How often to trigger bar height animations (ms)
+const UPDATE_INTERVAL_MS = 150; // How often to trigger bar height animations (ms) - also used for bar rise duration
+const BAR_FALL_DURATION = 2000; // How slowly bars decay (ms)
+
+interface AudioAnalyserConfig {
+  fftSize: number;
+  smoothing: number;
+  minDecibels: number;
+  maxDecibels: number;
+}
 
 interface AudioAnalyserReturn {
   loadTrack: (src: string) => void;
   stop: () => void;
   getFrequencyData: () => Uint8Array | null;
   audioElement: HTMLAudioElement | null;
+  updateConfig: (config: AudioAnalyserConfig) => void;
 }
 
 /**
@@ -69,33 +106,69 @@ function useAudioAnalyser(): AudioAnalyserReturn {
   const dataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const currentConfigRef = useRef<AudioAnalyserConfig>({
+    fftSize: FFT_SIZE,
+    smoothing: SMOOTHING_TIME_CONSTANT,
+    minDecibels: MIN_DECIBELS,
+    maxDecibels: MAX_DECIBELS,
+  });
 
-  const initAudioContext = useCallback(() => {
-    if (audioContextRef.current) return;
+  const initAudioContext = useCallback((config: AudioAnalyserConfig) => {
+    if (audioContextRef.current && currentConfigRef.current.fftSize === config.fftSize) {
+      // Just update parameters that don't require recreating analyser
+      if (analyserRef.current) {
+        analyserRef.current.smoothingTimeConstant = config.smoothing;
+        analyserRef.current.minDecibels = config.minDecibels;
+        analyserRef.current.maxDecibels = config.maxDecibels;
+      }
+      currentConfigRef.current = config;
+      return;
+    }
 
-    // Create audio context and analyser node for frequency analysis (Web Audio API)
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    // Need to recreate analyser if fftSize changed
+    if (audioContextRef.current && currentConfigRef.current.fftSize !== config.fftSize) {
+      if (analyserRef.current) {
+        analyserRef.current.disconnect();
+      }
+    }
+
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+
     analyserRef.current = audioContextRef.current.createAnalyser();
+    analyserRef.current.fftSize = config.fftSize;
+    analyserRef.current.smoothingTimeConstant = config.smoothing;
+    analyserRef.current.minDecibels = config.minDecibels;
+    analyserRef.current.maxDecibels = config.maxDecibels;
 
-    // FFT (Fast Fourier Transform) size determines frequency resolution
-    // 2048 samples gives us 1024 frequency bins (frequencyBinCount = fftSize / 2)
-    analyserRef.current.fftSize = 2048;
-
-    // Smoothing averages frequency data over time (0-1, where 0 = no smoothing)
-    analyserRef.current.smoothingTimeConstant = 0.3;
-
-    // Set decibel range for normalization (quietest to loudest)
-    analyserRef.current.minDecibels = -90;
-    analyserRef.current.maxDecibels = -10;
-
-    // Create byte array to hold frequency data (values 0-255 for each frequency bin)
     const bufferLength = analyserRef.current.frequencyBinCount;
     dataArrayRef.current = new Uint8Array(bufferLength);
+    currentConfigRef.current = config;
   }, []);
 
+  const updateConfig = useCallback(
+    (config: AudioAnalyserConfig) => {
+      initAudioContext(config);
+
+      // If audio is playing, reconnect with new analyser
+      if (sourceRef.current && analyserRef.current) {
+        sourceRef.current.disconnect();
+        sourceRef.current.connect(analyserRef.current);
+        analyserRef.current.connect(audioContextRef.current!.destination);
+      }
+    },
+    [initAudioContext],
+  );
+
   const loadTrack = useCallback(
-    (src: string) => {
-      initAudioContext();
+    async (src: string) => {
+      initAudioContext(currentConfigRef.current);
+
+      // Resume audio context if suspended (browser autoplay policy)
+      if (audioContextRef.current?.state === "suspended") {
+        await audioContextRef.current.resume();
+      }
 
       // Clean up previous audio element
       if (audioElementRef.current) {
@@ -106,7 +179,13 @@ function useAudioAnalyser(): AudioAnalyserReturn {
       // Create new audio element and set source
       const audio = new Audio();
       audio.src = src;
+      audio.volume = 1.0; // Ensure volume is set
       audioElementRef.current = audio;
+
+      // Add error handler for debugging
+      audio.addEventListener("error", (e) => {
+        console.error("Audio loading error:", e);
+      });
 
       // Disconnect old audio source if it exists
       if (sourceRef.current) {
@@ -119,7 +198,12 @@ function useAudioAnalyser(): AudioAnalyserReturn {
       sourceRef.current.connect(analyserRef.current!);
       analyserRef.current!.connect(audioContextRef.current!.destination);
 
-      audio.play();
+      try {
+        await audio.play();
+        console.log("Audio playing, context state:", audioContextRef.current?.state);
+      } catch (err) {
+        console.error("Audio playback error:", err);
+      }
     },
     [initAudioContext],
   );
@@ -149,6 +233,7 @@ function useAudioAnalyser(): AudioAnalyserReturn {
     stop,
     getFrequencyData,
     audioElement: audioElementRef.current,
+    updateConfig,
   };
 }
 
@@ -161,7 +246,7 @@ function useAudioAnalyser(): AudioAnalyserReturn {
  */
 function calculateFrequencyLabel(barIndex: number): string {
   if (barIndex >= FREQUENCY_RANGES.length) {
-    return '';
+    return "";
   }
 
   const [minHz] = FREQUENCY_RANGES[barIndex];
@@ -169,23 +254,27 @@ function calculateFrequencyLabel(barIndex: number): string {
   if (minHz < 1000) {
     return `${Math.round(minHz)}Hz`;
   }
-  return `${(minHz / 1000).toFixed(1)}k`;
+  return `${(minHz / 1000).toFixed(1)}kHz`;
 }
 
 /**
  * Calculates the height for a single bar based on frequency data.
  * Uses explicit frequency ranges with average aggregation for smooth visualization.
  */
-function calculateHeight(dataArray: Uint8Array, barIndex: number): number {
-  const sampleRate = 44100;
-  const fftSize = 2048;
-  const hzPerBin = (sampleRate / 2) / (fftSize / 2);
+function calculateHeight(
+  dataArray: Uint8Array,
+  barIndex: number,
+  frequencyRanges: readonly (readonly [number, number])[],
+  fftSize: number,
+  sampleRate: number = SAMPLE_RATE,
+): number {
+  const hzPerBin = sampleRate / 2 / (fftSize / 2);
 
-  if (barIndex >= FREQUENCY_RANGES.length) {
+  if (barIndex >= frequencyRanges.length) {
     return BASE_HEIGHT;
   }
 
-  const [minHz, maxHz] = FREQUENCY_RANGES[barIndex];
+  const [minHz, maxHz] = frequencyRanges[barIndex];
   const startBin = Math.max(1, Math.floor(minHz / hzPerBin));
   const endBin = Math.min(dataArray.length, Math.floor(maxHz / hzPerBin));
 
@@ -209,15 +298,21 @@ function calculateHeight(dataArray: Uint8Array, barIndex: number): number {
  * Individual frequency bar component with three animated layers: bar, cap, and glow.
  * Uses transform-based animations (scale/translate) instead of height changes for better performance.
  */
-const EqualizerBar: React.FC<{ barId: string }> = ({ barId }) => {
+const EqualizerBar: React.FC<{
+  barId: string;
+  frequencyRanges: readonly (readonly [number, number])[];
+  barWidth: number;
+}> = ({ barId, frequencyRanges, barWidth }) => {
   const getAnimationTiming = useCallback((context: Record<string, unknown>) => {
     const targetHeight = (context.targetHeight as number) || BASE_HEIGHT;
     const previousHeight = (context.previousHeight as number) || BASE_HEIGHT;
+    const barResponse = (context.barResponse as number) || UPDATE_INTERVAL_MS;
+    const barDecay = (context.barDecay as number) || BAR_FALL_DURATION;
     const isRising = targetHeight > previousHeight;
 
     return {
-      duration: isRising ? 100 : 2000,
-      easing: isRising ? ("ease-out" as const) : ("ease-in-out" as const),
+      duration: isRising ? barResponse : barDecay,
+      easing: isRising ? "ease-out" : "ease-out",
       targetHeight,
     };
   }, []);
@@ -252,7 +347,8 @@ const EqualizerBar: React.FC<{ barId: string }> = ({ barId }) => {
   );
 
   // Cap animations - the small element that sits on top of each bar
-  // Uses translateY to move with the bar height (also GPU-accelerated)
+  // Uses translateY to move with the bar height (also GPU-accelerated)...
+  // border-radius is stretched under transform... hence why this hack is needed...
   const capAnimations: Record<string, AnimationDefinition> = useMemo(
     () => ({
       updateHeight: (context: Record<string, unknown>) => {
@@ -298,12 +394,20 @@ const EqualizerBar: React.FC<{ barId: string }> = ({ barId }) => {
   const index = parseInt(barId.split("-")[1]);
   const hue = ((10 + index * 22) / 720) * 360;
 
+  // Get frequency range for this bar
+  const [minHz, maxHz] = index < frequencyRanges.length ? frequencyRanges[index] : [0, 0];
+  const formatHz = (hz: number) => (hz >= 1000 ? `${(hz / 1000).toFixed(1)}kHz` : `${hz}Hz`);
+  const freqLabel = `${formatHz(minHz)} - ${formatHz(maxHz)}`;
+
+  const glowSpread = barWidth * 0.25; // Glow extends 25% beyond bar on each side
+
   return (
     <div
+      className={styles.barContainer}
+      data-frequency={freqLabel}
       style={{
         position: "relative",
-        width: "20px",
-        marginRight: "3px",
+        width: `${barWidth}px`,
         height: `${BASE_HEIGHT + CAP_HEIGHT}px`,
       }}
     >
@@ -312,8 +416,8 @@ const EqualizerBar: React.FC<{ barId: string }> = ({ barId }) => {
         style={{
           position: "absolute",
           bottom: "0",
-          left: "-5px",
-          right: "-5px",
+          left: `-${glowSpread}px`,
+          right: `-${glowSpread}px`,
           height: `${BASE_HEIGHT}px`,
           transformOrigin: "bottom",
           background: `radial-gradient(ellipse, hsla(${hue}, 70%, 60%, 0.6), transparent)`,
@@ -328,7 +432,7 @@ const EqualizerBar: React.FC<{ barId: string }> = ({ barId }) => {
           position: "absolute",
           bottom: "0",
           left: "0",
-          width: "20px",
+          width: `${barWidth}px`,
           height: `${BASE_HEIGHT}px`,
           transformOrigin: "bottom",
           background: `linear-gradient(180deg, hsl(${hue}, 70%, 70%) 0%, hsl(${hue}, 70%, 50%) 100%)`,
@@ -344,7 +448,7 @@ const EqualizerBar: React.FC<{ barId: string }> = ({ barId }) => {
           position: "absolute",
           bottom: `${BASE_HEIGHT - 1}px`,
           left: "0",
-          width: "20px",
+          width: `${barWidth}px`,
           height: `${CAP_HEIGHT}px`,
           background: `linear-gradient(180deg, hsl(${hue}, 70%, 75%) 0%, hsl(${hue}, 70%, 70%) 100%)`,
           borderRadius: "4px 4px 0 0",
@@ -359,6 +463,47 @@ const EqualizerBar: React.FC<{ barId: string }> = ({ barId }) => {
 const MusicVisualizerDemo: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // Audio analysis parameters (configurable via control panel)
+  const [smoothing, setSmoothing] = useState(SMOOTHING_TIME_CONSTANT);
+  const [dbRangeMin, setDbRangeMin] = useState(170); // 0-255 scale for min (170 = -85 dB)
+  const [dbRangeMax, setDbRangeMax] = useState(245); // 0-255 scale for max (245 = -10 dB)
+  const [barResponse, setBarResponse] = useState(UPDATE_INTERVAL_MS);
+  const [barDecay, setBarDecay] = useState(BAR_FALL_DURATION);
+  const [barDensity, setBarDensity] = useState<1 | 2 | 4>(1); // 1 = 31 bars, 2 = 62 bars, 4 = 124 bars
+  const [showControls, setShowControls] = useState(false);
+
+  // Convert 0-255 range to decibels (-255 to 0 dB)
+  const minDecibels = -255 + dbRangeMin;
+  const maxDecibels = -255 + dbRangeMax;
+
+  // Get subdivided frequency ranges based on density
+  const activeFrequencyRanges = useMemo(() => subdivideFrequencyRanges(barDensity), [barDensity]);
+  const BAR_COUNT = activeFrequencyRanges.length;
+
+  // Calculate bar width based on density (narrower bars for higher density)
+  const barWidth = useMemo(() => {
+    switch (barDensity) {
+      case 1:
+        return 20; // Normal - 20px
+      case 2:
+        return 10; // Double - 10px
+      case 4:
+        return 5; // Quadruple - 5px
+    }
+  }, [barDensity]);
+
+  // Calculate bar width based on density (narrower bars for higher density)
+  const scaledFftSize = useMemo(() => {
+    switch (barDensity) {
+      case 1:
+        return FFT_SIZE; // Normal - 20px
+      case 2:
+        return FFT_SIZE * 2; // Double - 10px
+      case 4:
+        return FFT_SIZE * 4; // Quadruple - 5px
+    }
+  }, [barDensity]);
+
   const audioAnalyser = useAudioAnalyser();
   const engine = useAnimationEngine();
 
@@ -369,9 +514,11 @@ const MusicVisualizerDemo: React.FC = () => {
       engine.updateEntityContext(`bar-${i}`, {
         targetHeight: BASE_HEIGHT,
         previousHeight: BASE_HEIGHT,
+        barResponse,
+        barDecay,
       });
     }
-  }, [engine]);
+  }, [engine, barResponse, barDecay]);
 
   const handlePlay = useCallback(() => {
     audioAnalyser.loadTrack("/sample_audio_for_animation_demo.wav");
@@ -404,6 +551,8 @@ const MusicVisualizerDemo: React.FC = () => {
       engine.updateEntityContext(`bar-${i}`, {
         targetHeight: BASE_HEIGHT,
         previousHeight,
+        barResponse,
+        barDecay,
       });
     }
 
@@ -412,7 +561,7 @@ const MusicVisualizerDemo: React.FC = () => {
       Array.from({ length: BAR_COUNT }).map((_, i) => [`bar-${i}`, { event: "updateHeight" }]),
     );
     engine.playTransitions(transitions).finally(resetBars);
-  }, [engine]);
+  }, [engine, barResponse, barDecay, resetBars]);
 
   useEffect(() => {
     if (audioAnalyser.audioElement) {
@@ -422,6 +571,16 @@ const MusicVisualizerDemo: React.FC = () => {
       };
     }
   }, [audioAnalyser.audioElement, handleTrackEnd]);
+
+  // Update audio analyser when parameters change
+  useEffect(() => {
+    audioAnalyser.updateConfig({
+      fftSize: scaledFftSize,
+      smoothing,
+      minDecibels,
+      maxDecibels,
+    });
+  }, [smoothing, dbRangeMin, dbRangeMax, audioAnalyser, minDecibels, maxDecibels, scaledFftSize]);
 
   // Visualization update loop - runs on interval when playing
   // Uses setInterval for timed updated with the web animation API running
@@ -435,13 +594,15 @@ const MusicVisualizerDemo: React.FC = () => {
 
       // Calculate heights and update engine context directly (no state updates!)
       for (let i = 0; i < BAR_COUNT; i++) {
-        const height = calculateHeight(dataArray, i);
+        const height = calculateHeight(dataArray, i, activeFrequencyRanges, scaledFftSize);
         const context = engine.getEntityContext(`bar-${i}`);
         const previousHeight = (context?.targetHeight as number) || BASE_HEIGHT;
 
         engine.updateEntityContext(`bar-${i}`, {
           targetHeight: height,
           previousHeight,
+          barResponse,
+          barDecay,
         });
       }
 
@@ -452,16 +613,25 @@ const MusicVisualizerDemo: React.FC = () => {
       engine.playTransitions(transitions);
     };
 
-    // Simple interval ... animation runs at 60fps between the two points, so 100ms is simply
+    // Simple interval ... animation runs at 60fps between the two points, so barResponse is simply
     // the frequency the height is looked up...
-    intervalRef.current = window.setInterval(update, UPDATE_INTERVAL_MS);
+    intervalRef.current = window.setInterval(update, barResponse);
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isPlaying, audioAnalyser, engine]);
+  }, [
+    isPlaying,
+    audioAnalyser,
+    engine,
+    barResponse,
+    barDecay,
+    activeFrequencyRanges,
+    BAR_COUNT,
+    scaledFftSize,
+  ]);
 
   const frequencyLabels = useMemo(() => {
     const labels = [];
@@ -470,7 +640,7 @@ const MusicVisualizerDemo: React.FC = () => {
       Math.floor(BAR_COUNT * 0.25),
       Math.floor(BAR_COUNT * 0.5),
       Math.floor(BAR_COUNT * 0.75),
-      BAR_COUNT - 1
+      BAR_COUNT - 1,
     ];
 
     for (const i of indicesToShow) {
@@ -484,32 +654,15 @@ const MusicVisualizerDemo: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.controls}>
-        <button
-          onClick={handlePlay}
-          disabled={isPlaying}
-          className={`${styles.button} ${styles.buttonPrimary} ${isPlaying ? styles.buttonDisabled : ""}`}
-        >
-          ▶ Play
-        </button>
-
-        {isPlaying && (
-          <button onClick={handleStop} className={`${styles.button} ${styles.buttonStop}`}>
-            ⏹ Stop
-          </button>
-        )}
-
-        <div className={styles.statusIndicator}>
-          <span className={isPlaying ? styles.statusText : styles.statusTextInactive}>
-            {isPlaying ? "● Live" : "○ Ready"}
-          </span>
-        </div>
-      </div>
-
       <div className={styles.visualizerWrapper}>
         <div className={styles.visualizer}>
           {Array.from({ length: BAR_COUNT }, (_, i) => (
-            <EqualizerBar key={`bar-${i}`} barId={`bar-${i}`} />
+            <EqualizerBar
+              key={`bar-${i}`}
+              barId={`bar-${i}`}
+              frequencyRanges={activeFrequencyRanges}
+              barWidth={barWidth}
+            />
           ))}
         </div>
 
@@ -518,13 +671,158 @@ const MusicVisualizerDemo: React.FC = () => {
             <span key={index}>{label}</span>
           ))}
         </div>
-
-        {isPlaying && audioAnalyser.audioElement && (
-          <div className={styles.audioControls}>
-            <audio controls />
-          </div>
-        )}
       </div>
+
+      <div className={styles.controls}>
+        <button
+          onClick={handlePlay}
+          disabled={isPlaying}
+          className={`${styles.button} ${styles.buttonPlay} ${isPlaying ? styles.buttonDisabled : ""}`}
+        >
+          ▶ Play
+        </button>
+
+        <button
+          onClick={handleStop}
+          disabled={!isPlaying}
+          className={`${styles.button} ${styles.buttonStop} ${!isPlaying ? styles.buttonDisabled : ""}`}
+        >
+          ⏹ Stop
+        </button>
+
+        <button
+          onClick={() => setShowControls(!showControls)}
+          className={`${styles.button} ${styles.buttonSettings}`}
+        >
+          ⚙️ {showControls ? "Hide" : "Settings"}
+        </button>
+      </div>
+
+      {showControls && (
+        <div className={styles.controlPanel}>
+          <div className={styles.controlGroup}>
+            <label className={styles.controlLabel}>
+              Bar Density
+              <span className={styles.controlHint}>({BAR_COUNT} bars)</span>
+            </label>
+            <select
+              value={barDensity}
+              onChange={(e) => setBarDensity(Number(e.target.value) as 1 | 2 | 4)}
+              className={styles.controlSelect}
+            >
+              <option value={1}>Normal (31 bars)</option>
+              <option value={2}>Double (62 bars)</option>
+              <option value={4}>Quadruple (124 bars)</option>
+            </select>
+          </div>
+
+          <div className={styles.controlGroup}>
+            <label className={styles.controlLabel}>
+              Bar Response: {barResponse}ms
+              <span className={styles.controlHint}>(how quickly bars rise)</span>
+            </label>
+            <input
+              type="range"
+              min="50"
+              max="500"
+              step="10"
+              value={barResponse}
+              onChange={(e) => setBarResponse(Number(e.target.value))}
+              className={styles.controlSlider}
+            />
+          </div>
+
+          <div className={styles.controlGroup}>
+            <label className={styles.controlLabel}>
+              Bar Decay: {barDecay}ms
+              <span className={styles.controlHint}>(how slowly bars fall)</span>
+            </label>
+            <input
+              type="range"
+              min="500"
+              max="5000"
+              step="100"
+              value={barDecay}
+              onChange={(e) => setBarDecay(Number(e.target.value))}
+              className={styles.controlSlider}
+            />
+          </div>
+
+          <div className={styles.controlGroup}>
+            <label className={styles.controlLabel}>
+              Smoothing: {smoothing.toFixed(2)}
+              <span className={styles.controlHint}>(0 = reactive, 1 = smooth)</span>
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={smoothing}
+              onChange={(e) => setSmoothing(Number(e.target.value))}
+              className={styles.controlSlider}
+            />
+          </div>
+
+          <div className={styles.controlGroup}>
+            <label className={styles.controlLabel}>
+              Decibel Range
+              <span className={styles.controlHint}>
+                ({minDecibels} dB to {maxDecibels} dB)
+              </span>
+            </label>
+            <div className={styles.dualSliderContainer}>
+              <div className={styles.dualSliderTrack}>
+                <div
+                  className={styles.dualSliderRange}
+                  style={{
+                    left: `${(dbRangeMin / 255) * 100}%`,
+                    right: `${((255 - dbRangeMax) / 255) * 100}%`,
+                  }}
+                />
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="255"
+                step="5"
+                value={dbRangeMin}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val < dbRangeMax - 10) setDbRangeMin(val);
+                }}
+                className={styles.dualSliderThumb}
+              />
+              <input
+                type="range"
+                min="0"
+                max="255"
+                step="5"
+                value={dbRangeMax}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val > dbRangeMin + 10) setDbRangeMax(val);
+                }}
+                className={styles.dualSliderThumb}
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              setBarResponse(UPDATE_INTERVAL_MS);
+              setBarDecay(BAR_FALL_DURATION);
+              setSmoothing(SMOOTHING_TIME_CONSTANT);
+              setDbRangeMin(170);
+              setDbRangeMax(245);
+              setBarDensity(1);
+            }}
+            className={`${styles.button} ${styles.buttonReset}`}
+          >
+            Reset to Defaults
+          </button>
+        </div>
+      )}
     </div>
   );
 };

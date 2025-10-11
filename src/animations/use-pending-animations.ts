@@ -16,8 +16,6 @@ export function usePendingAnimations(
   useLayoutEffect(() => {
     if (!pendingBatch || pendingBatch.transitions.size === 0) return;
 
-    console.log("[PendingAnimations] Processing batch:", pendingBatch.transitions.size);
-
     const animTransitions = new Map<string, AnimationTransition>();
     const entityIds: string[] = [];
 
@@ -31,7 +29,6 @@ export function usePendingAnimations(
       : undefined;
 
     engine.playTransitions(animTransitions, getIndex).then(() => {
-      console.log("[PendingAnimations] Animations complete");
       onComplete(entityIds);
     });
   }, [pendingBatch, engine, onComplete]);
