@@ -1,3 +1,4 @@
+// music-visualiser-demo.tsx
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import {
   AnimationEngineProvider,
@@ -7,57 +8,77 @@ import { useAnimationRegistration } from "../../gameplay/animations/use-animatio
 import type { AnimationDefinition } from "../../gameplay/animations/animation-types";
 import styles from "./music-visualiser-demo.module.css";
 
-// Visualizer constants
 const FREQUENCY_RANGES = [
-  // Bass region - tight spacing for detail
-  [20, 40], // Bar 0: Deep sub-bass
-  [40, 60], // Bar 1: Sub-bass
-  [60, 80], // Bar 2: Bass
-  [80, 100], // Bar 3: Bass
-  [100, 125], // Bar 4: Bass
-  [125, 150], // Bar 5: Bass
-  [150, 180], // Bar 6: Bass
-  [180, 220], // Bar 7: Upper bass
-  [220, 270], // Bar 8: Low-mids
-  [270, 330], // Bar 9: Low-mids
-  [330, 400], // Bar 10: Low-mids
-  [400, 480], // Bar 11: Low-mids
-
-  // Mid range - medium spacing
-  [480, 570], // Bar 12: Mids
-  [570, 680], // Bar 13: Mids
-  [680, 810], // Bar 14: Mids
-  [810, 1000], // Bar 15: Mids
-  [1000, 1200], // Bar 16: Mids
-  [1200, 1500], // Bar 17: Upper-mids
-  [1500, 1800], // Bar 18: Upper-mids
-  [1800, 2200], // Bar 19: Upper-mids
-  [2200, 2700], // Bar 20: Upper-mids
-  [2700, 3300], // Bar 21: Upper-mids
-
-  // High range - wider spacing
-  [3300, 4000], // Bar 22: Highs
-  [4000, 5000], // Bar 23: Highs
-  [5000, 6200], // Bar 24: Highs
-  [6200, 7600], // Bar 25: Highs
-  [7600, 9300], // Bar 26: Ultra-highs
-  [9300, 11500], // Bar 27: Ultra-highs
-  [11500, 14000], // Bar 28: Ultra-highs
-  [14000, 17000], // Bar 29: Ultra-highs
-  [17000, 22000], // Bar 30: Ultra-highs
+  [20, 40],
+  [40, 60],
+  [60, 80],
+  [80, 100],
+  [100, 125],
+  [125, 150],
+  [150, 180],
+  [180, 220],
+  [220, 270],
+  [270, 330],
+  [330, 400],
+  [400, 480],
+  [480, 570],
+  [570, 680],
+  [680, 810],
+  [810, 1000],
+  [1000, 1200],
+  [1200, 1500],
+  [1500, 1800],
+  [1800, 2200],
+  [2200, 2700],
+  [2700, 3300],
+  [3300, 4000],
+  [4000, 5000],
+  [5000, 6200],
+  [6200, 7600],
+  [7600, 9300],
+  [9300, 11500],
+  [11500, 14000],
+  [14000, 17000],
+  [17000, 22000],
 ] as const;
 
-// Audio analysis configuration
-const FFT_SIZE = 2048; // Number of samples for FFT (higher = better frequency resolution, slower updates)
-const SAMPLE_RATE = 44100; // Audio sample rate in Hz (CD quality standard)
-const SMOOTHING_TIME_CONSTANT = 0.3; // Time averaging (0-1, lower = more responsive, higher = smoother)
-const MIN_DECIBELS = -100; // Minimum power level in dB (quietest sound to show, more negative = picks up quieter sounds)
-const MAX_DECIBELS = 0; // Maximum power level in dB (loudest sound, 0 = digital maximum)
+const FFT_SIZE = 2048;
+const SAMPLE_RATE = 44100;
+const SMOOTHING_TIME_CONSTANT = 0.3;
+const MIN_DECIBELS = -100;
+const MAX_DECIBELS = 0;
+const BASE_HEIGHT = 30;
+const CAP_HEIGHT = 6;
+const UPDATE_INTERVAL_MS = 150;
+const BAR_FALL_DURATION = 2000;
+const MIN_GAIN = -12;
+const MAX_GAIN = 12;
 
-/**
- * Subdivide frequency ranges to create more bars
- * @param multiplier - 1 = normal (31 bars), 2 = double (62 bars), 4 = quadruple (124 bars)
- */
+interface EQControlNode {
+  barIndex: number;
+  gain: number;
+}
+
+interface AudioAnalyserConfig {
+  fftSize: number;
+  smoothing: number;
+  minDecibels: number;
+  maxDecibels: number;
+}
+
+interface AudioAnalyserReturn {
+  loadTrack: (src: string) => void;
+  stop: () => void;
+  getFrequencyData: () => Uint8Array | null;
+  audioElement: HTMLAudioElement | null;
+  updateConfig: (config: AudioAnalyserConfig) => void;
+  initEQFilters: (frequencyRanges: readonly (readonly [number, number])[]) => void;
+  updateEQFilters: (
+    nodes: EQControlNode[],
+    frequencyRanges: readonly (readonly [number, number])[],
+  ) => void;
+}
+
 function subdivideFrequencyRanges(multiplier: 1 | 2 | 4): readonly (readonly [number, number])[] {
   if (multiplier === 1) return FREQUENCY_RANGES;
 
@@ -76,36 +97,37 @@ function subdivideFrequencyRanges(multiplier: 1 | 2 | 4): readonly (readonly [nu
   return subdivided;
 }
 
-const BASE_HEIGHT = 30; // Minimum height for bars (px)
-const CAP_HEIGHT = 6; // Height of the cap element on top of each bar
-const UPDATE_INTERVAL_MS = 150; // How often to trigger bar height animations (ms) - also used for bar rise duration
-const BAR_FALL_DURATION = 2000; // How slowly bars decay (ms)
+function calculateBarPositions(
+  containerWidth: number,
+  barWidth: number,
+  barCount: number,
+  gap: number,
+): number[] {
+  const totalBarsWidth = barWidth * barCount + gap * (barCount - 1);
+  const offset = (containerWidth - totalBarsWidth) / 2;
 
-interface AudioAnalyserConfig {
-  fftSize: number;
-  smoothing: number;
-  minDecibels: number;
-  maxDecibels: number;
+  return Array.from({ length: barCount }, (_, i) => {
+    return offset + barWidth / 2 + (barWidth + gap) * i;
+  });
 }
 
-interface AudioAnalyserReturn {
-  loadTrack: (src: string) => void;
-  stop: () => void;
-  getFrequencyData: () => Uint8Array | null;
-  audioElement: HTMLAudioElement | null;
-  updateConfig: (config: AudioAnalyserConfig) => void;
+function getDefaultEQNodes(totalBars: number): EQControlNode[] {
+  return [
+    { barIndex: Math.floor(totalBars * 0.1), gain: 0 },
+    { barIndex: Math.floor(totalBars * 0.3), gain: 0 },
+    { barIndex: Math.floor(totalBars * 0.5), gain: 0 },
+    { barIndex: Math.floor(totalBars * 0.7), gain: 0 },
+    { barIndex: Math.floor(totalBars * 0.9), gain: 0 },
+  ];
 }
 
-/**
- * Custom hook for audio analysis using the Web Audio API.
- * Sets up an audio context and analyser node to extract frequency data from audio playback.
- */
 function useAudioAnalyser(): AudioAnalyserReturn {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const dataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const eqFiltersRef = useRef<BiquadFilterNode[]>([]);
   const currentConfigRef = useRef<AudioAnalyserConfig>({
     fftSize: FFT_SIZE,
     smoothing: SMOOTHING_TIME_CONSTANT,
@@ -115,7 +137,6 @@ function useAudioAnalyser(): AudioAnalyserReturn {
 
   const initAudioContext = useCallback((config: AudioAnalyserConfig) => {
     if (audioContextRef.current && currentConfigRef.current.fftSize === config.fftSize) {
-      // Just update parameters that don't require recreating analyser
       if (analyserRef.current) {
         analyserRef.current.smoothingTimeConstant = config.smoothing;
         analyserRef.current.minDecibels = config.minDecibels;
@@ -125,7 +146,6 @@ function useAudioAnalyser(): AudioAnalyserReturn {
       return;
     }
 
-    // Need to recreate analyser if fftSize changed
     if (audioContextRef.current && currentConfigRef.current.fftSize !== config.fftSize) {
       if (analyserRef.current) {
         analyserRef.current.disconnect();
@@ -151,7 +171,6 @@ function useAudioAnalyser(): AudioAnalyserReturn {
     (config: AudioAnalyserConfig) => {
       initAudioContext(config);
 
-      // If audio is playing, reconnect with new analyser
       if (sourceRef.current && analyserRef.current) {
         sourceRef.current.disconnect();
         sourceRef.current.connect(analyserRef.current);
@@ -161,41 +180,87 @@ function useAudioAnalyser(): AudioAnalyserReturn {
     [initAudioContext],
   );
 
+  const initEQFilters = useCallback(
+    (frequencyRanges: readonly (readonly [number, number])[]) => {
+      if (!audioContextRef.current) {
+        initAudioContext(currentConfigRef.current);
+      }
+
+      eqFiltersRef.current.forEach((filter) => filter.disconnect());
+      eqFiltersRef.current = [];
+
+      const defaultNodes = getDefaultEQNodes(frequencyRanges.length);
+
+      for (const node of defaultNodes) {
+        const filter = audioContextRef.current!.createBiquadFilter();
+        filter.type = "peaking";
+        const [minHz, maxHz] = frequencyRanges[node.barIndex];
+        filter.frequency.value = (minHz + maxHz) / 2;
+        filter.Q.value = 1.0;
+        filter.gain.value = 0;
+        eqFiltersRef.current.push(filter);
+      }
+    },
+    [initAudioContext],
+  );
+
+  const updateEQFilters = useCallback(
+    (nodes: EQControlNode[], frequencyRanges: readonly (readonly [number, number])[]) => {
+      if (eqFiltersRef.current.length === 0) return;
+      if (nodes.length === 0) return;
+
+      nodes.forEach((node, index) => {
+        if (index < eqFiltersRef.current.length) {
+          const filter = eqFiltersRef.current[index];
+          const [minHz, maxHz] = frequencyRanges[node.barIndex];
+          filter.frequency.value = (minHz + maxHz) / 2;
+          filter.gain.value = node.gain;
+        }
+      });
+    },
+    [],
+  );
+
   const loadTrack = useCallback(
     async (src: string) => {
       initAudioContext(currentConfigRef.current);
 
-      // Resume audio context if suspended (browser autoplay policy)
       if (audioContextRef.current?.state === "suspended") {
         await audioContextRef.current.resume();
       }
 
-      // Clean up previous audio element
       if (audioElementRef.current) {
         audioElementRef.current.pause();
         audioElementRef.current = null;
       }
 
-      // Create new audio element and set source
       const audio = new Audio();
       audio.src = src;
-      audio.volume = 1.0; // Ensure volume is set
+      audio.volume = 1.0;
       audioElementRef.current = audio;
 
-      // Add error handler for debugging
       audio.addEventListener("error", (e) => {
         console.error("Audio loading error:", e);
       });
 
-      // Disconnect old audio source if it exists
       if (sourceRef.current) {
         sourceRef.current.disconnect();
       }
 
-      // Wire up the audio pipeline: Audio Element -> Analyser -> Speakers
-      // This allows us to analyze the audio while it plays
       sourceRef.current = audioContextRef.current!.createMediaElementSource(audio);
-      sourceRef.current.connect(analyserRef.current!);
+
+      if (eqFiltersRef.current.length > 0) {
+        sourceRef.current.connect(eqFiltersRef.current[0]);
+
+        for (let i = 0; i < eqFiltersRef.current.length - 1; i++) {
+          eqFiltersRef.current[i].connect(eqFiltersRef.current[i + 1]);
+        }
+
+        eqFiltersRef.current[eqFiltersRef.current.length - 1].connect(analyserRef.current!);
+      } else {
+        sourceRef.current.connect(analyserRef.current!);
+      }
+
       analyserRef.current!.connect(audioContextRef.current!.destination);
 
       try {
@@ -222,8 +287,6 @@ function useAudioAnalyser(): AudioAnalyserReturn {
 
   const getFrequencyData = useCallback((): Uint8Array | null => {
     if (!analyserRef.current || !dataArrayRef.current) return null;
-
-    // Fills dataArray with current frequency data (0-255 for each frequency bin)
     analyserRef.current.getByteFrequencyData(dataArrayRef.current);
     return dataArrayRef.current;
   }, []);
@@ -234,22 +297,20 @@ function useAudioAnalyser(): AudioAnalyserReturn {
     getFrequencyData,
     audioElement: audioElementRef.current,
     updateConfig,
+    initEQFilters,
+    updateEQFilters,
   };
 }
 
-/**
- * Calculates the frequency label for a given bar index.
- * Reads directly from FREQUENCY_RANGES array.
- *
- * @param barIndex - The bar's position (0 to BAR_COUNT-1)
- * @returns Formatted frequency label (e.g., "86Hz" or "2.5k")
- */
-function calculateFrequencyLabel(barIndex: number): string {
-  if (barIndex >= FREQUENCY_RANGES.length) {
+function calculateFrequencyLabel(
+  barIndex: number,
+  frequencyRanges: readonly (readonly [number, number])[],
+): string {
+  if (barIndex >= frequencyRanges.length) {
     return "";
   }
 
-  const [minHz] = FREQUENCY_RANGES[barIndex];
+  const [minHz] = frequencyRanges[barIndex];
 
   if (minHz < 1000) {
     return `${Math.round(minHz)}Hz`;
@@ -257,10 +318,6 @@ function calculateFrequencyLabel(barIndex: number): string {
   return `${(minHz / 1000).toFixed(1)}kHz`;
 }
 
-/**
- * Calculates the height for a single bar based on frequency data.
- * Uses explicit frequency ranges with average aggregation for smooth visualization.
- */
 function calculateHeight(
   dataArray: Uint8Array,
   barIndex: number,
@@ -294,10 +351,6 @@ function calculateHeight(
   return Math.max(BASE_HEIGHT, scaled * 300);
 }
 
-/**
- * Individual frequency bar component with three animated layers: bar, cap, and glow.
- * Uses transform-based animations (scale/translate) instead of height changes for better performance.
- */
 const EqualizerBar: React.FC<{
   barId: string;
   frequencyRanges: readonly (readonly [number, number])[];
@@ -317,19 +370,16 @@ const EqualizerBar: React.FC<{
     };
   }, []);
 
-  // Separate timing for glow - always fast and reactive!
   const getGlowTiming = useCallback((context: Record<string, unknown>) => {
     const targetHeight = (context.targetHeight as number) || BASE_HEIGHT;
 
     return {
-      duration: 100, // Fixed fast duration - no slow decay for more energy!
+      duration: 100,
       easing: "ease-out" as const,
       targetHeight,
     };
   }, []);
 
-  // Main bar animations - uses scaleY instead of height for GPU acceleration
-  // Transform animations trigger composite layer, avoiding layout/paint on every frame
   const animations: Record<string, AnimationDefinition> = useMemo(
     () => ({
       updateHeight: (context: Record<string, unknown>) => {
@@ -337,7 +387,6 @@ const EqualizerBar: React.FC<{
         const scale = targetHeight / BASE_HEIGHT;
 
         return {
-          // scaleY avoids layout recalculation (much faster than animating height property)
           keyframes: [{ transform: `scaleY(${scale})` }],
           options: { duration, easing, fill: "forwards" },
         };
@@ -346,9 +395,6 @@ const EqualizerBar: React.FC<{
     [getAnimationTiming],
   );
 
-  // Cap animations - the small element that sits on top of each bar
-  // Uses translateY to move with the bar height (also GPU-accelerated)...
-  // border-radius is stretched under transform... hence why this hack is needed...
   const capAnimations: Record<string, AnimationDefinition> = useMemo(
     () => ({
       updateHeight: (context: Record<string, unknown>) => {
@@ -356,7 +402,6 @@ const EqualizerBar: React.FC<{
         const translateY = -(targetHeight - BASE_HEIGHT);
 
         return {
-          // translateY keeps cap positioned at top of scaled bar
           keyframes: [{ transform: `translateY(${translateY}px)` }],
           options: { duration, easing, fill: "forwards" },
         };
@@ -365,16 +410,11 @@ const EqualizerBar: React.FC<{
     [getAnimationTiming],
   );
 
-  // Glow layer animations - adds visual depth with blurred background effect
-  // Uses separate timing for more energetic/jumpy behavior
   const glowAnimations: Record<string, AnimationDefinition> = useMemo(
     () => ({
       updateHeight: (context: Record<string, unknown>) => {
-        // Glow uses separate timing - always fast and jumpy!
         const { duration, easing, targetHeight } = getGlowTiming(context);
         const scale = targetHeight / BASE_HEIGHT;
-
-        // Boost the glow scale for more dramatic effect (20% bigger than bar)
         const glowScale = scale * 1.2;
 
         return {
@@ -394,12 +434,11 @@ const EqualizerBar: React.FC<{
   const index = parseInt(barId.split("-")[1]);
   const hue = ((10 + index * 22) / 720) * 360;
 
-  // Get frequency range for this bar
   const [minHz, maxHz] = index < frequencyRanges.length ? frequencyRanges[index] : [0, 0];
   const formatHz = (hz: number) => (hz >= 1000 ? `${(hz / 1000).toFixed(1)}kHz` : `${hz}Hz`);
   const freqLabel = `${formatHz(minHz)} - ${formatHz(maxHz)}`;
 
-  const glowSpread = barWidth * 0.25; // Glow extends 25% beyond bar on each side
+  const glowSpread = barWidth * 0.25;
 
   return (
     <div
@@ -460,49 +499,323 @@ const EqualizerBar: React.FC<{
   );
 };
 
+const EQOverlay: React.FC<{
+  controlNodes: EQControlNode[];
+  onNodesChange: (nodes: EQControlNode[]) => void;
+  containerHeight: number;
+  barWidth: number;
+  barCount: number;
+  frequencyRanges: readonly (readonly [number, number])[];
+}> = ({ controlNodes, onNodesChange, containerHeight, barWidth, barCount, frequencyRanges }) => {
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const containerWidth = svgRef.current?.clientWidth || 800;
+
+  const barPositions = useMemo(() => {
+    return calculateBarPositions(containerWidth, barWidth, barCount, 3);
+  }, [containerWidth, barWidth, barCount]);
+
+  const interpolatedNodes = useMemo(() => {
+    if (controlNodes.length === 0) return [];
+
+    const sortedNodes = [...controlNodes].sort((a, b) => a.barIndex - b.barIndex);
+    const nodes: { barIndex: number; gain: number }[] = [];
+
+    for (let barIndex = 0; barIndex < barCount; barIndex++) {
+      let lowerNode = sortedNodes[0];
+      let upperNode = sortedNodes[sortedNodes.length - 1];
+
+      for (let i = 0; i < sortedNodes.length - 1; i++) {
+        if (barIndex >= sortedNodes[i].barIndex && barIndex <= sortedNodes[i + 1].barIndex) {
+          lowerNode = sortedNodes[i];
+          upperNode = sortedNodes[i + 1];
+          break;
+        }
+      }
+
+      const range = upperNode.barIndex - lowerNode.barIndex;
+      const t = range === 0 ? 0 : (barIndex - lowerNode.barIndex) / range;
+      const gain = lowerNode.gain + t * (upperNode.gain - lowerNode.gain);
+
+      nodes.push({ barIndex, gain });
+    }
+
+    return nodes;
+  }, [controlNodes, barCount]);
+
+  const gainToY = useCallback(
+    (gain: number): number => {
+      return ((MAX_GAIN - gain) / (MAX_GAIN - MIN_GAIN)) * containerHeight;
+    },
+    [containerHeight],
+  );
+
+  const yToGain = useCallback(
+    (y: number): number => {
+      return MAX_GAIN - (y / containerHeight) * (MAX_GAIN - MIN_GAIN);
+    },
+    [containerHeight],
+  );
+
+  const xToBarIndex = useCallback(
+    (x: number): number => {
+      let closestIndex = 0;
+      let minDist = Math.abs(x - barPositions[0]);
+
+      for (let i = 1; i < barPositions.length; i++) {
+        const dist = Math.abs(x - barPositions[i]);
+        if (dist < minDist) {
+          minDist = dist;
+          closestIndex = i;
+        }
+      }
+
+      return closestIndex;
+    },
+    [barPositions],
+  );
+
+  const generateCurvePath = useMemo(() => {
+    if (controlNodes.length === 0) return "";
+
+    const sortedNodes = [...controlNodes].sort((a, b) => a.barIndex - b.barIndex);
+
+    const points = sortedNodes.map((node) => ({
+      x: barPositions[node.barIndex] || 0,
+      y: gainToY(node.gain),
+    }));
+
+    let path = `M ${points[0].x} ${points[0].y}`;
+
+    for (let i = 0; i < points.length - 1; i++) {
+      const curr = points[i];
+      const next = points[i + 1];
+      const midX = (curr.x + next.x) / 2;
+      const midY = (curr.y + next.y) / 2;
+
+      path += ` Q ${curr.x} ${curr.y}, ${midX} ${midY}`;
+      path += ` Q ${next.x} ${next.y}, ${next.x} ${next.y}`;
+    }
+
+    return path;
+  }, [controlNodes, barPositions, gainToY]);
+
+  const handleMouseDown = useCallback((index: number) => {
+    setDraggingIndex(index);
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (draggingIndex === null || !svgRef.current) return;
+
+      const rect = svgRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      const y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+
+      const snappedBarIndex = xToBarIndex(x);
+      const newGain = Math.max(MIN_GAIN, Math.min(yToGain(y), MAX_GAIN));
+
+      const isOccupiedByOtherNode = controlNodes.some(
+        (node, idx) => idx !== draggingIndex && node.barIndex === snappedBarIndex,
+      );
+
+      if (isOccupiedByOtherNode) return;
+
+      const updatedNodes = [...controlNodes];
+      updatedNodes[draggingIndex] = {
+        barIndex: snappedBarIndex,
+        gain: Math.round(newGain * 10) / 10,
+      };
+
+      onNodesChange(updatedNodes);
+    },
+    [draggingIndex, controlNodes, onNodesChange, xToBarIndex, yToGain],
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setDraggingIndex(null);
+  }, []);
+
+  useEffect(() => {
+    if (draggingIndex !== null) {
+      const handleGlobalMouseUp = () => setDraggingIndex(null);
+      window.addEventListener("mouseup", handleGlobalMouseUp);
+      return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
+    }
+  }, [draggingIndex]);
+
+  const zeroLineY = gainToY(0);
+
+  const formatFrequency = (barIndex: number): string => {
+    if (barIndex >= frequencyRanges.length) return "";
+    const [minHz, maxHz] = frequencyRanges[barIndex];
+    const avgHz = (minHz + maxHz) / 2;
+    return avgHz >= 1000 ? `${(avgHz / 1000).toFixed(1)}kHz` : `${Math.round(avgHz)}Hz`;
+  };
+
+  const formatGain = (gain: number): string => {
+    return `${gain >= 0 ? "+" : ""}${gain.toFixed(1)}dB`;
+  };
+
+  return (
+    <svg
+      ref={svgRef}
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "auto",
+        zIndex: 10002,
+      }}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      <line
+        x1="0"
+        y1={zeroLineY}
+        x2="100%"
+        y2={zeroLineY}
+        stroke="rgba(255, 255, 255, 0.2)"
+        strokeWidth="1"
+        strokeDasharray="4 4"
+      />
+
+      {generateCurvePath && (
+        <path
+          d={generateCurvePath}
+          fill="none"
+          stroke="rgba(59, 130, 246, 0.6)"
+          strokeWidth="2"
+          style={{ pointerEvents: "none" }}
+        />
+      )}
+
+      {interpolatedNodes.map((node) => {
+        const isControlNode = controlNodes.some((cn) => cn.barIndex === node.barIndex);
+        if (isControlNode) return null;
+
+        const x = barPositions[node.barIndex] || 0;
+        const y = gainToY(node.gain);
+
+        return (
+          <circle
+            key={node.barIndex}
+            cx={x}
+            cy={y}
+            r={2}
+            fill="rgba(59, 130, 246, 0.4)"
+            style={{ pointerEvents: "none" }}
+          />
+        );
+      })}
+
+      {controlNodes.map((node, index) => {
+        const x = barPositions[node.barIndex] || 0;
+        const y = gainToY(node.gain);
+        const isDragging = draggingIndex === index;
+
+        return (
+          <g key={index}>
+            <line
+              x1={x}
+              y1="0"
+              x2={x}
+              y2="100%"
+              stroke={isDragging ? "rgba(59, 130, 246, 0.4)" : "rgba(59, 130, 246, 0.2)"}
+              strokeWidth={isDragging ? "2" : "1"}
+              strokeDasharray="2 2"
+              style={{ pointerEvents: "none" }}
+            />
+
+            <circle
+              cx={x}
+              cy={y}
+              r={isDragging ? 10 : 8}
+              fill="#3b82f6"
+              stroke="#ffffff"
+              strokeWidth="2"
+              style={{
+                cursor: "grab",
+                pointerEvents: "auto",
+                filter: isDragging
+                  ? "drop-shadow(0 6px 16px rgba(59, 130, 246, 1))"
+                  : "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))",
+                transition: isDragging ? "none" : "filter 0.15s ease",
+              }}
+              onMouseDown={() => handleMouseDown(index)}
+            />
+
+            {isDragging && (
+              <text
+                x={x}
+                y={y - 20}
+                fill="#ffffff"
+                fontSize="12"
+                fontWeight="600"
+                fontFamily="Monaco, Courier New, monospace"
+                textAnchor="middle"
+                style={{
+                  pointerEvents: "none",
+                  filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8))",
+                }}
+              >
+                {formatFrequency(node.barIndex)} | {formatGain(node.gain)}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+};
+
 const MusicVisualizerDemo: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
-
-  // Audio analysis parameters (configurable via control panel)
   const [smoothing, setSmoothing] = useState(SMOOTHING_TIME_CONSTANT);
-  const [dbRangeMin, setDbRangeMin] = useState(170); // 0-255 scale for min (170 = -85 dB)
-  const [dbRangeMax, setDbRangeMax] = useState(245); // 0-255 scale for max (245 = -10 dB)
+  const [dbRangeMin, setDbRangeMin] = useState(170);
+  const [dbRangeMax, setDbRangeMax] = useState(245);
   const [barResponse, setBarResponse] = useState(UPDATE_INTERVAL_MS);
   const [barDecay, setBarDecay] = useState(BAR_FALL_DURATION);
-  const [barDensity, setBarDensity] = useState<1 | 2 | 4>(1); // 1 = 31 bars, 2 = 62 bars, 4 = 124 bars
+  const [barDensity, setBarDensity] = useState<1 | 2 | 4>(1);
   const [showControls, setShowControls] = useState(false);
+  const [showEQ, setShowEQ] = useState(true);
+  const [eqControlNodes, setEqControlNodes] = useState<EQControlNode[]>([]);
 
-  // Convert 0-255 range to decibels (-255 to 0 dB)
   const minDecibels = -255 + dbRangeMin;
   const maxDecibels = -255 + dbRangeMax;
 
-  // Get subdivided frequency ranges based on density
   const activeFrequencyRanges = useMemo(() => subdivideFrequencyRanges(barDensity), [barDensity]);
   const BAR_COUNT = activeFrequencyRanges.length;
 
-  // Calculate bar width based on density (narrower bars for higher density)
   const barWidth = useMemo(() => {
     switch (barDensity) {
       case 1:
-        return 20; // Normal - 20px
+        return 20;
       case 2:
-        return 10; // Double - 10px
+        return 10;
       case 4:
-        return 5; // Quadruple - 5px
+        return 5;
     }
   }, [barDensity]);
 
-  // Calculate bar width based on density (narrower bars for higher density)
   const scaledFftSize = useMemo(() => {
     switch (barDensity) {
       case 1:
-        return FFT_SIZE; // Normal - 20px
+        return FFT_SIZE;
       case 2:
-        return FFT_SIZE * 2; // Double - 10px
+        return FFT_SIZE * 2;
       case 4:
-        return FFT_SIZE * 4; // Quadruple - 5px
+        return FFT_SIZE * 4;
     }
   }, [barDensity]);
+
+  useEffect(() => {
+    setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
+  }, [BAR_COUNT]);
 
   const audioAnalyser = useAudioAnalyser();
   const engine = useAnimationEngine();
@@ -518,7 +831,7 @@ const MusicVisualizerDemo: React.FC = () => {
         barDecay,
       });
     }
-  }, [engine, barResponse, barDecay]);
+  }, [engine, BAR_COUNT, barResponse, barDecay]);
 
   const handlePlay = useCallback(() => {
     audioAnalyser.loadTrack("/sample_audio_for_animation_demo.wav");
@@ -542,8 +855,6 @@ const MusicVisualizerDemo: React.FC = () => {
       intervalRef.current = null;
     }
 
-    // DON'T resetBars() immediately - animate them down smoothly!
-    // Update contexts to base height
     for (let i = 0; i < BAR_COUNT; i++) {
       const context = engine.getEntityContext(`bar-${i}`);
       const previousHeight = (context?.targetHeight as number) || BASE_HEIGHT;
@@ -556,12 +867,11 @@ const MusicVisualizerDemo: React.FC = () => {
       });
     }
 
-    // Trigger smooth animations down to rest position
     const transitions = new Map(
       Array.from({ length: BAR_COUNT }).map((_, i) => [`bar-${i}`, { event: "updateHeight" }]),
     );
     engine.playTransitions(transitions).finally(resetBars);
-  }, [engine, barResponse, barDecay, resetBars]);
+  }, [engine, BAR_COUNT, barResponse, barDecay, resetBars]);
 
   useEffect(() => {
     if (audioAnalyser.audioElement) {
@@ -572,7 +882,6 @@ const MusicVisualizerDemo: React.FC = () => {
     }
   }, [audioAnalyser.audioElement, handleTrackEnd]);
 
-  // Update audio analyser when parameters change
   useEffect(() => {
     audioAnalyser.updateConfig({
       fftSize: scaledFftSize,
@@ -582,9 +891,14 @@ const MusicVisualizerDemo: React.FC = () => {
     });
   }, [smoothing, dbRangeMin, dbRangeMax, audioAnalyser, minDecibels, maxDecibels, scaledFftSize]);
 
-  // Visualization update loop - runs on interval when playing
-  // Uses setInterval for timed updated with the web animation API running
-  // at 60fps between the points.
+  useEffect(() => {
+    audioAnalyser.initEQFilters(activeFrequencyRanges);
+  }, [activeFrequencyRanges, audioAnalyser]);
+
+  useEffect(() => {
+    audioAnalyser.updateEQFilters(eqControlNodes, activeFrequencyRanges);
+  }, [eqControlNodes, activeFrequencyRanges, audioAnalyser]);
+
   useEffect(() => {
     if (!isPlaying) return;
 
@@ -592,7 +906,6 @@ const MusicVisualizerDemo: React.FC = () => {
       const dataArray = audioAnalyser.getFrequencyData();
       if (!dataArray) return;
 
-      // Calculate heights and update engine context directly (no state updates!)
       for (let i = 0; i < BAR_COUNT; i++) {
         const height = calculateHeight(dataArray, i, activeFrequencyRanges, scaledFftSize);
         const context = engine.getEntityContext(`bar-${i}`);
@@ -606,15 +919,12 @@ const MusicVisualizerDemo: React.FC = () => {
         });
       }
 
-      // Trigger all bar animations at once via direct engine call
       const transitions = new Map(
         Array.from({ length: BAR_COUNT }).map((_, i) => [`bar-${i}`, { event: "updateHeight" }]),
       );
       engine.playTransitions(transitions);
     };
 
-    // Simple interval ... animation runs at 60fps between the two points, so barResponse is simply
-    // the frequency the height is looked up...
     intervalRef.current = window.setInterval(update, barResponse);
 
     return () => {
@@ -634,23 +944,32 @@ const MusicVisualizerDemo: React.FC = () => {
   ]);
 
   const frequencyLabels = useMemo(() => {
+    const targetFrequencies = [20, 100, 500, 1000, 5000, 10000, 20000];
     const labels = [];
-    const indicesToShow = [
-      0,
-      Math.floor(BAR_COUNT * 0.25),
-      Math.floor(BAR_COUNT * 0.5),
-      Math.floor(BAR_COUNT * 0.75),
-      BAR_COUNT - 1,
-    ];
 
-    for (const i of indicesToShow) {
+    for (const targetHz of targetFrequencies) {
+      let closestIndex = 0;
+      let minDiff = Infinity;
+
+      for (let i = 0; i < activeFrequencyRanges.length; i++) {
+        const [minHz, maxHz] = activeFrequencyRanges[i];
+        const centerHz = (minHz + maxHz) / 2;
+        const diff = Math.abs(centerHz - targetHz);
+
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestIndex = i;
+        }
+      }
+
       labels.push({
-        index: i,
-        label: calculateFrequencyLabel(i),
+        index: closestIndex,
+        label: calculateFrequencyLabel(closestIndex, activeFrequencyRanges),
       });
     }
+
     return labels;
-  }, []);
+  }, [activeFrequencyRanges]);
 
   return (
     <div className={styles.container}>
@@ -664,6 +983,17 @@ const MusicVisualizerDemo: React.FC = () => {
               barWidth={barWidth}
             />
           ))}
+
+          {showEQ && (
+            <EQOverlay
+              controlNodes={eqControlNodes}
+              onNodesChange={setEqControlNodes}
+              containerHeight={380}
+              barWidth={barWidth}
+              barCount={BAR_COUNT}
+              frequencyRanges={activeFrequencyRanges}
+            />
+          )}
         </div>
 
         <div className={styles.frequencyLabels}>
@@ -688,6 +1018,13 @@ const MusicVisualizerDemo: React.FC = () => {
           className={`${styles.button} ${styles.buttonStop} ${!isPlaying ? styles.buttonDisabled : ""}`}
         >
           ⏹ Stop
+        </button>
+
+        <button
+          onClick={() => setShowEQ(!showEQ)}
+          className={`${styles.button} ${styles.buttonEQ}`}
+        >
+          {showEQ ? "Hide" : "Show"} EQ
         </button>
 
         <button
@@ -808,6 +1145,20 @@ const MusicVisualizerDemo: React.FC = () => {
             </div>
           </div>
 
+          <div className={styles.controlGroup}>
+            <label className={styles.controlLabel}>
+              EQ Controls
+              <span className={styles.controlHint}>(5-band parametric equalizer)</span>
+            </label>
+            <button
+              onClick={() => setEqControlNodes(getDefaultEQNodes(BAR_COUNT))}
+              className={`${styles.button} ${styles.buttonReset}`}
+              style={{ marginTop: 0 }}
+            >
+              Reset EQ (Flat)
+            </button>
+          </div>
+
           <button
             onClick={() => {
               setBarResponse(UPDATE_INTERVAL_MS);
@@ -816,10 +1167,11 @@ const MusicVisualizerDemo: React.FC = () => {
               setDbRangeMin(170);
               setDbRangeMax(245);
               setBarDensity(1);
+              setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
             }}
             className={`${styles.button} ${styles.buttonReset}`}
           >
-            Reset to Defaults
+            Reset All to Defaults
           </button>
         </div>
       )}
@@ -834,3 +1186,4 @@ export const MusicVisualizerDemoWrapper: React.FC = () => {
     </AnimationEngineProvider>
   );
 };
+export default MusicVisualizerDemoWrapper;

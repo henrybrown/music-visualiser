@@ -1,3 +1,4 @@
+/* music-visualiser-demo.module.css */
 .container {
   width: 100%;
   max-width: 900px;
@@ -34,7 +35,7 @@
   padding: 0 1rem;
   font-size: 0.7rem;
   color: #94a3b8;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: "Monaco", "Courier New", monospace;
   font-weight: 500;
 }
 
@@ -79,6 +80,16 @@
   background: #d97706;
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.buttonEQ {
+  background: #8b5cf6;
+}
+
+.buttonEQ:hover:not(.buttonDisabled) {
+  background: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
 
 .buttonDisabled {
@@ -307,14 +318,16 @@
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
   z-index: 10001;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: "Monaco", "Courier New", monospace;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .barContainer::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 100%;
   left: 50%;
@@ -323,7 +336,9 @@
   border-top-color: rgba(0, 0, 0, 0.95);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
   z-index: 10001;
 }
 
