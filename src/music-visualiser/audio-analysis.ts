@@ -155,9 +155,11 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
   const initEQFilters = useCallback((frequencyRanges: readonly (readonly [number, number])[]) => {
     if (!audioContextRef.current) return;
 
+    // Disconnect old filters
     eqFiltersRef.current.forEach((filter) => filter.disconnect());
     eqFiltersRef.current = [];
 
+    // Create new filters
     for (let i = 0; i < frequencyRanges.length; i++) {
       const filter = audioContextRef.current.createBiquadFilter();
       filter.type = "peaking";
@@ -171,6 +173,25 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
       filter.gain.value = 0;
 
       eqFiltersRef.current.push(filter);
+    }
+
+    // Reconnect the audio chain if source exists
+    if (sourceRef.current && analyserRef.current) {
+      sourceRef.current.disconnect();
+
+      if (eqFiltersRef.current.length > 0) {
+        sourceRef.current.connect(eqFiltersRef.current[0]);
+
+        for (let i = 0; i < eqFiltersRef.current.length - 1; i++) {
+          eqFiltersRef.current[i].connect(eqFiltersRef.current[i + 1]);
+        }
+
+        eqFiltersRef.current[eqFiltersRef.current.length - 1].connect(analyserRef.current);
+      } else {
+        sourceRef.current.connect(analyserRef.current);
+      }
+
+      analyserRef.current.connect(audioContextRef.current.destination);
     }
   }, []);
 

@@ -209,7 +209,7 @@ const EQOverlay: React.FC<EQOverlayProps> = ({
         left: 0,
         width: "100%",
         height: "100%",
-        pointerEvents: "auto",
+        pointerEvents: draggingIndex !== null ? "auto" : "none",
         zIndex: 10002,
       }}
       onMouseMove={handleMouseMove}
