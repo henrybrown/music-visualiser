@@ -1,11 +1,17 @@
-import type { SpringConfig } from "./sping-animation";
+import type { SpringConfig } from './spring-animation';
 
-export interface AnimationDefinitionStatic {
+export interface WaapiAnimationDefinition {
   keyframes: Keyframe[];
   options?: KeyframeAnimationOptions;
-  mode?: "tween" | "spring";
+}
+
+export interface SpringAnimationDefinition {
+  keyframes: Keyframe[];
+  springProperty: 'scaleY' | 'translateY';
   springConfig?: SpringConfig;
 }
+
+export type AnimationDefinitionStatic = WaapiAnimationDefinition | SpringAnimationDefinition;
 
 export type AnimationDefinition =
   | AnimationDefinitionStatic
@@ -20,3 +26,15 @@ export interface AnimationMetadata {
 export interface AnimationTransition {
   event: string;
 }
+
+export const isSpringAnimation = (
+  def: AnimationDefinitionStatic
+): def is SpringAnimationDefinition => {
+  return 'springProperty' in def;
+};
+
+export const isWaapiAnimation = (
+  def: AnimationDefinitionStatic
+): def is WaapiAnimationDefinition => {
+  return !('springProperty' in def);
+};

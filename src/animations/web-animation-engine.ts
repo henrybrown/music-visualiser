@@ -1,8 +1,16 @@
 import type { AnimationDefinition, AnimationTransition } from "./animation-types";
-import { createSpring, type Spring } from "./sping-animation";
+import { isSpringAnimation } from "./animation-types";
+import { createSpring, type Spring, SPRING_PRESETS } from "./spring-animation";
 
 export interface EntityContext {
   [key: string]: unknown;
+}
+
+interface SpringData {
+  spring: Spring;
+  element: HTMLElement;
+  property: 'scaleY' | 'translateY';
+  baseHeight: number;
 }
 
 export interface WebAnimationEngine {
@@ -35,6 +43,7 @@ export interface WebAnimationEngine {
     registeredEntities: number;
     registeredElements: number;
     runningAnimations: number;
+    runningSprings: number;
     contextSize: number;
   };
 }
@@ -45,11 +54,13 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
     Map<string, { element: HTMLElement; animations: Record<string, AnimationDefinition> }>
   >();
   const animations = new Map<string, Animation>();
-  const springs = new Map<string, { spring: Spring; element: HTMLElement }>();
+  const springs = new Map<string, SpringData>();
   const entityContexts = new Map<string, EntityContext>();
 
   let rafId: number | null = null;
   let lastTime = 0;
+
+  const BASE_HEIGHT = 30;
 
   const register = (
     entityId: string,
@@ -67,10 +78,18 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const context = entityContexts.get(entityId) || {};
       const animDef = typeof animDefOrFn === "function" ? animDefOrFn(context) : animDefOrFn;
 
-      if (animDef.mode === "spring") {
-        const spring = createSpring(1, animDef.springConfig);
-        springs.set(animKey, { spring, element });
+      // DETECTION: Check if spring or WAAPI
+      if (isSpringAnimation(animDef)) {
+        const spring = createSpring(1, animDef.springConfig || SPRING_PRESETS.visualizer);
+
+        springs.set(animKey, {
+          spring,
+          element,
+          property: animDef.springProperty,
+          baseHeight: BASE_HEIGHT
+        });
       } else {
+        // Existing WAAPI code
         const animation = element.animate(animDef.keyframes, {
           ...animDef.options,
           fill: "forwards",
@@ -125,12 +144,11 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
   };
 
   const updateSpringTargets = (targets: Map<string, number>) => {
-    targets.forEach((target, entityId) => {
-      springs.forEach(({ spring }, key) => {
-        if (key.startsWith(`${entityId}-`)) {
-          spring.setTarget(target);
-        }
-      });
+    targets.forEach((target, key) => {
+      const springData = springs.get(key);
+      if (springData) {
+        springData.spring.setTarget(target);
+      }
     });
   };
 
@@ -142,9 +160,18 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
       lastTime = currentTime;
 
-      springs.forEach(({ spring, element }) => {
+      springs.forEach(({ spring, element, property, baseHeight }) => {
         const value = spring.tick(deltaTime);
-        element.style.transform = `scaleY(${value})`;
+
+        switch (property) {
+          case 'scaleY':
+            element.style.transform = `scaleY(${value})`;
+            break;
+          case 'translateY':
+            const translateY = (value - 1) * baseHeight;
+            element.style.transform = `translateY(${translateY}px)`;
+            break;
+        }
       });
 
       if (springs.size > 0) {
@@ -195,7 +222,8 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
         const animKey = `${entityId}-${elementId}-${transition.event}`;
 
-        if (animDef.mode === "spring") {
+        // Handle spring animations (NEW)
+        if (isSpringAnimation(animDef)) {
           const springData = springs.get(animKey);
           if (springData) {
             const targetKeyframe = animDef.keyframes[0];
@@ -205,6 +233,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
             }
           }
         } else {
+          // Existing WAAPI code (unchanged)
           const animation = animations.get(animKey);
           if (!animation) return;
 
@@ -252,7 +281,8 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
   const getStats = () => ({
     registeredEntities: registry.size,
     registeredElements: Array.from(registry.values()).reduce((sum, map) => sum + map.size, 0),
-    runningAnimations: animations.size + springs.size,
+    runningAnimations: animations.size,
+    runningSprings: springs.size,
     contextSize: entityContexts.size,
   });
 
