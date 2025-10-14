@@ -1,4 +1,5 @@
 import type { AnimationDefinition, AnimationTransition } from "./animation-types";
+import { createSpring, type Spring } from "./sping-animation";
 
 export interface EntityContext {
   [key: string]: unknown;
@@ -16,6 +17,9 @@ export interface WebAnimationEngine {
     transitions: Map<string, AnimationTransition>,
     getIndex?: (entityId: string) => number,
   ) => Promise<void>;
+  updateSpringTargets: (targets: Map<string, number>) => void;
+  startSpringLoop: () => void;
+  stopSpringLoop: () => void;
   cancelAll: () => void;
   updateEntityContext: (entityId: string, context: EntityContext) => void;
   getEntityContext: (entityId: string) => EntityContext | undefined;
@@ -27,6 +31,12 @@ export interface WebAnimationEngine {
     runningAnimations: Map<string, Animation>;
     entityContexts: Map<string, EntityContext>;
   };
+  getStats: () => {
+    registeredEntities: number;
+    registeredElements: number;
+    runningAnimations: number;
+    contextSize: number;
+  };
 }
 
 export function createWebAnimationEngine(engineId: string = "default"): WebAnimationEngine {
@@ -34,29 +44,74 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
     string,
     Map<string, { element: HTMLElement; animations: Record<string, AnimationDefinition> }>
   >();
-  const runningAnimations = new Map<string, Animation>();
+  const animations = new Map<string, Animation>();
+  const springs = new Map<string, { spring: Spring; element: HTMLElement }>();
   const entityContexts = new Map<string, EntityContext>();
+
+  let rafId: number | null = null;
+  let lastTime = 0;
 
   const register = (
     entityId: string,
     elementId: string,
     element: HTMLElement,
-    animations: Record<string, AnimationDefinition>,
+    animationDefs: Record<string, AnimationDefinition>,
   ) => {
     if (!registry.has(entityId)) {
       registry.set(entityId, new Map());
     }
-    registry.get(entityId)!.set(elementId, { element, animations });
+    registry.get(entityId)!.set(elementId, { element, animations: animationDefs });
+
+    Object.entries(animationDefs).forEach(([eventName, animDefOrFn]) => {
+      const animKey = `${entityId}-${elementId}-${eventName}`;
+      const context = entityContexts.get(entityId) || {};
+      const animDef = typeof animDefOrFn === "function" ? animDefOrFn(context) : animDefOrFn;
+
+      if (animDef.mode === "spring") {
+        const spring = createSpring(1, animDef.springConfig);
+        springs.set(animKey, { spring, element });
+      } else {
+        const animation = element.animate(animDef.keyframes, {
+          ...animDef.options,
+          fill: "forwards",
+        });
+        animation.finish();
+        animations.set(animKey, animation);
+      }
+    });
   };
 
   const unregister = (entityId: string, elementId: string) => {
     const entityRegistry = registry.get(entityId);
-    if (entityRegistry) {
-      entityRegistry.delete(elementId);
-      if (entityRegistry.size === 0) {
-        registry.delete(entityId);
-        entityContexts.delete(entityId);
+    if (!entityRegistry) return;
+
+    const animKeyPrefix = `${entityId}-${elementId}`;
+    const keysToDelete: string[] = [];
+
+    animations.forEach((animation, key) => {
+      if (key.startsWith(animKeyPrefix)) {
+        try {
+          animation.cancel();
+        } catch (e) {}
+        keysToDelete.push(key);
       }
+    });
+
+    springs.forEach((_, key) => {
+      if (key.startsWith(animKeyPrefix)) {
+        keysToDelete.push(key);
+      }
+    });
+
+    keysToDelete.forEach((key) => {
+      animations.delete(key);
+      springs.delete(key);
+    });
+
+    entityRegistry.delete(elementId);
+    if (entityRegistry.size === 0) {
+      registry.delete(entityId);
+      entityContexts.delete(entityId);
     }
   };
 
@@ -67,6 +122,48 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
   const getEntityContext = (entityId: string) => {
     return entityContexts.get(entityId);
+  };
+
+  const updateSpringTargets = (targets: Map<string, number>) => {
+    targets.forEach((target, entityId) => {
+      springs.forEach(({ spring }, key) => {
+        if (key.startsWith(`${entityId}-`)) {
+          spring.setTarget(target);
+        }
+      });
+    });
+  };
+
+  const startSpringLoop = () => {
+    if (rafId) return;
+
+    const tick = (currentTime: number) => {
+      if (!lastTime) lastTime = currentTime;
+      const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
+      lastTime = currentTime;
+
+      springs.forEach(({ spring, element }) => {
+        const value = spring.tick(deltaTime);
+        element.style.transform = `scaleY(${value})`;
+      });
+
+      if (springs.size > 0) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        rafId = null;
+        lastTime = 0;
+      }
+    };
+
+    rafId = requestAnimationFrame(tick);
+  };
+
+  const stopSpringLoop = () => {
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+      lastTime = 0;
+    }
   };
 
   const playTransitions = async (
@@ -87,50 +184,52 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
       const index = getIndex?.(entityId) ?? 0;
 
-      entityElements.forEach(({ element, animations }, elementId) => {
-        const animDefOrFn = animations[transition.event];
+      entityElements.forEach(({ element, animations: animationDefs }, elementId) => {
+        const animDefOrFn = animationDefs[transition.event];
         if (!animDefOrFn) {
           return;
         }
 
-        // Resolve function or use static definition
         const context = entityContexts.get(entityId) || {};
         const animDef = typeof animDefOrFn === "function" ? animDefOrFn(context) : animDefOrFn;
 
         const animKey = `${entityId}-${elementId}-${transition.event}`;
-        const existing = runningAnimations.get(animKey);
 
-        // Prevent jerky interruptions: commit current position before starting new animation
-        if (existing && existing.playState === "running") {
-          try {
-            return;
-            //existing.commitStyles(); // Freeze where we are to avoid jump
-            // existing.cancel(); // Stop old animation
-          } catch (e) {}
+        if (animDef.mode === "spring") {
+          const springData = springs.get(animKey);
+          if (springData) {
+            const targetKeyframe = animDef.keyframes[0];
+            const scaleYMatch = (targetKeyframe.transform as string)?.match(/scaleY\(([\d.]+)\)/);
+            if (scaleYMatch) {
+              springData.spring.setTarget(parseFloat(scaleYMatch[1]));
+            }
+          }
+        } else {
+          const animation = animations.get(animKey);
+          if (!animation) return;
+
+          const staggerDelay = index * 50;
+
+          const options: KeyframeAnimationOptions = {
+            ...animDef.options,
+            delay: (animDef.options?.delay ?? 0) + staggerDelay,
+          };
+
+          const effect = animation.effect as KeyframeEffect;
+
+          animation.commitStyles();
+          effect.setKeyframes(animDef.keyframes);
+          effect.updateTiming(options as OptionalEffectTiming);
+          animation.cancel();
+          animation.play();
+
+          const animationPromise: Promise<void> = animation.finished.then(
+            () => {},
+            () => {},
+          );
+
+          promises.push(animationPromise);
         }
-
-        const staggerDelay = index * 50;
-
-        const options: KeyframeAnimationOptions = {
-          ...animDef.options,
-          delay: (animDef.options?.delay ?? 0) + staggerDelay,
-        };
-
-        const animation = element.animate(animDef.keyframes, options);
-
-        runningAnimations.set(animKey, animation);
-
-        const animationPromise: Promise<void> = animation.finished.then(
-          () => {
-            runningAnimations.delete(animKey);
-            animation.commitStyles();
-          },
-          () => {
-            runningAnimations.delete(animKey);
-          },
-        );
-
-        promises.push(animationPromise);
       });
     });
 
@@ -138,23 +237,36 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
   };
 
   const cancelAll = () => {
-    runningAnimations.forEach((anim) => anim.cancel());
-    runningAnimations.clear();
+    animations.forEach((anim) => anim.cancel());
+    animations.clear();
+    springs.clear();
+    stopSpringLoop();
   };
 
   const getEngineInfo = () => ({
     registry: new Map(registry),
-    runningAnimations: new Map(runningAnimations),
+    runningAnimations: new Map(animations),
     entityContexts: new Map(entityContexts),
+  });
+
+  const getStats = () => ({
+    registeredEntities: registry.size,
+    registeredElements: Array.from(registry.values()).reduce((sum, map) => sum + map.size, 0),
+    runningAnimations: animations.size + springs.size,
+    contextSize: entityContexts.size,
   });
 
   return {
     register,
     unregister,
     playTransitions,
+    updateSpringTargets,
+    startSpringLoop,
+    stopSpringLoop,
     cancelAll,
     updateEntityContext,
     getEntityContext,
     getEngineInfo,
+    getStats,
   };
 }

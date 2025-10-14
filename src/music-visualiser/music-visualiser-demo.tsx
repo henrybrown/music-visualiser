@@ -29,6 +29,11 @@ const MusicVisualizerDemo: React.FC = () => {
   const [showControls, setShowControls] = useState(false);
   const [showEQ, setShowEQ] = useState(true);
   const [eqControlNodes, setEqControlNodes] = useState<EQControlNode[]>([]);
+  const [debugStats, setDebugStats] = useState({
+    activeAnimations: 0,
+    lastUpdateTime: 0,
+    avgUpdateTime: 0,
+  });
 
   const minDecibels = -255 + dbRangeMin;
   const maxDecibels = -255 + dbRangeMax;
@@ -137,45 +142,40 @@ const MusicVisualizerDemo: React.FC = () => {
   }, [smoothing, minDecibels, maxDecibels, scaledFftSize, audioAnalyser.updateConfig]);
 
   useEffect(() => {
-    audioAnalyser.initEQFilters(activeFrequencyRanges);
-  }, [activeFrequencyRanges, audioAnalyser.initEQFilters]);
+    audioAnalyser.initEQFilters();
+  }, [audioAnalyser.initEQFilters]);
 
   useEffect(() => {
-    audioAnalyser.updateEQFilters(eqControlNodes, activeFrequencyRanges);
-  }, [eqControlNodes, activeFrequencyRanges, audioAnalyser.updateEQFilters]);
+    const gains = eqControlNodes.map((node) => node.gain);
+    audioAnalyser.updateEQGains(gains);
+  }, [eqControlNodes, audioAnalyser.updateEQGains]);
 
   useEffect(() => {
     if (!isPlaying) return;
+
+    engine.startSpringLoop(); // Start spring RAF loop
 
     const update = () => {
       const dataArray = audioAnalyser.getFrequencyData();
       if (!dataArray) return;
 
+      const targets = new Map<string, number>();
       for (let i = 0; i < BAR_COUNT; i++) {
         const height = calculateHeight(dataArray, i, activeFrequencyRanges, scaledFftSize);
-        const context = engine.getEntityContext(`bar-${i}`);
-        const previousHeight = (context?.targetHeight as number) || BASE_HEIGHT;
-
-        engine.updateEntityContext(`bar-${i}`, {
-          targetHeight: height,
-          previousHeight,
-          barResponse,
-          barDecay,
-        });
+        targets.set(`bar-${i}`, height / BASE_HEIGHT);
       }
 
-      const transitions = new Map(
-        Array.from({ length: BAR_COUNT }).map((_, i) => [`bar-${i}`, { event: "updateHeight" }]),
-      );
-      engine.playTransitions(transitions);
+      engine.updateSpringTargets(targets);
     };
 
-    intervalRef.current = window.setInterval(update, barResponse);
+    // Much faster interval for springs (they smooth it out)
+    intervalRef.current = window.setInterval(update, 16); // 60fps updates
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      engine.stopSpringLoop();
     };
   }, [
     isPlaying,
@@ -256,6 +256,28 @@ const MusicVisualizerDemo: React.FC = () => {
             <span key={index}>{label}</span>
           ))}
         </div>
+
+        {isPlaying && (
+          <div
+            style={{
+              marginTop: "0.5rem",
+              padding: "0.5rem",
+              background: "rgba(0, 0, 0, 0.02)",
+              borderRadius: "4px",
+              fontSize: "0.7rem",
+              fontFamily: "Monaco, monospace",
+              color: "#64748b",
+              display: "flex",
+              gap: "1rem",
+              justifyContent: "center",
+            }}
+          >
+            <span>Active: {debugStats.activeAnimations}</span>
+            <span>Last: {debugStats.lastUpdateTime.toFixed(1)}ms</span>
+            <span>Avg: {debugStats.avgUpdateTime.toFixed(1)}ms</span>
+            <span>Target: {barResponse}ms</span>
+          </div>
+        )}
       </div>
 
       <div className={styles.controls}>

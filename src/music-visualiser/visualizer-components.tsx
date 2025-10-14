@@ -225,6 +225,7 @@ export const EqualizerBar: React.FC<EqualizerBarProps> = ({
           transformOrigin: "bottom",
           background: `linear-gradient(180deg, hsla(${hue}, 70%, 60%, 0.4) 0%, transparent 100%)`,
           filter: "blur(10px)",
+          //filter: "none", // <-- disable blur
           pointerEvents: "none",
           willChange: "transform",
         }}

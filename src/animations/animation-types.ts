@@ -1,6 +1,10 @@
+import type { SpringConfig } from "./sping-animation";
+
 export interface AnimationDefinitionStatic {
   keyframes: Keyframe[];
   options?: KeyframeAnimationOptions;
+  mode?: "tween" | "spring";
+  springConfig?: SpringConfig;
 }
 
 export type AnimationDefinition =

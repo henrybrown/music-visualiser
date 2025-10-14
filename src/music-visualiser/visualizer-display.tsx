@@ -1,7 +1,8 @@
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useRef, useEffect } from "react";
 import { useAnimationRegistration } from "../../gameplay/animations/use-animation-registration";
 import type { AnimationDefinition } from "../../gameplay/animations/animation-types";
 import styles from "./music-visualiser-demo.module.css";
+import { SPRING_PRESETS } from "../../gameplay/animations/";
 
 const BASE_HEIGHT = 30;
 const CAP_HEIGHT = 6;
@@ -13,6 +14,17 @@ export const EqualizerBar: React.FC<{
   frequencyRanges: readonly (readonly [number, number])[];
   barWidth: number;
 }> = ({ barId, frequencyRanges, barWidth }) => {
+  const renderCount = useRef(0);
+  const barIndex = parseInt(barId.split("-")[1]);
+
+  useEffect(() => {
+    renderCount.current++;
+
+    // Log every 50th render for random bars to avoid spam
+    if (renderCount.current % 50 === 0 && Math.random() < 0.05) {
+      console.log(`[Bar ${barIndex}] Rendered ${renderCount.current} times`);
+    }
+  });
   const getAnimationTiming = useCallback((context: Record<string, unknown>) => {
     const targetHeight = (context.targetHeight as number) || BASE_HEIGHT;
     const previousHeight = (context.previousHeight as number) || BASE_HEIGHT;
@@ -46,6 +58,8 @@ export const EqualizerBar: React.FC<{
         return {
           keyframes: [{ transform: `scaleY(${scale})` }],
           options: { duration, easing, fill: "forwards" },
+          mode: "spring", // NEW!
+          springConfig: SPRING_PRESETS.visualizer, // NEW!
         };
       },
     }),
@@ -55,18 +69,23 @@ export const EqualizerBar: React.FC<{
   const capAnimations: Record<string, AnimationDefinition> = useMemo(
     () => ({
       updateHeight: (context: Record<string, unknown>) => {
-        const { duration, easing, targetHeight } = getAnimationTiming(context);
-        const translateY = -(targetHeight - BASE_HEIGHT);
+        const { targetHeight, barResponse, barDecay, previousHeight } = context;
+        const height = (targetHeight as number) || BASE_HEIGHT;
+        const prevHeight = (previousHeight as number) || BASE_HEIGHT;
+        const translateY = -(height - BASE_HEIGHT);
+
+        const isRising = height > prevHeight;
+        const duration = isRising ? (barResponse as number) : (barDecay as number);
 
         return {
           keyframes: [{ transform: `translateY(${translateY}px)` }],
-          options: { duration, easing, fill: "forwards" },
+          options: { duration, easing: "ease-out", fill: "forwards" },
+          mode: "tween", // ← Keep as tween, NOT spring
         };
       },
     }),
-    [getAnimationTiming],
+    [],
   );
-
   const glowAnimations: Record<string, AnimationDefinition> = useMemo(
     () => ({
       updateHeight: (context: Record<string, unknown>) => {
@@ -105,6 +124,9 @@ export const EqualizerBar: React.FC<{
         position: "relative",
         width: `${barWidth}px`,
         height: `${BASE_HEIGHT + CAP_HEIGHT}px`,
+        willChange: "transform",
+        transform: "translateZ(0)", // Force GPU layer explicitly
+        isolation: "isolate", // Prevent layer sharing issues
       }}
     >
       <div
@@ -119,6 +141,8 @@ export const EqualizerBar: React.FC<{
           background: `radial-gradient(ellipse, hsla(${hue}, 70%, 60%, 0.6), transparent)`,
           filter: "blur(10px)",
           willChange: "transform",
+          transform: "translateZ(0)", // Force GPU layer explicitly
+          isolation: "isolate", // Prevent layer sharing issues
         }}
       />
 
@@ -135,6 +159,8 @@ export const EqualizerBar: React.FC<{
           borderRadius: "0",
           boxShadow: `0 0 20px hsla(${hue}, 70%, 60%, 0.5)`,
           willChange: "transform",
+          transform: "translateZ(0)", // Force GPU layer explicitly
+          isolation: "isolate", // Prevent layer sharing issues
         }}
       />
 
@@ -150,6 +176,8 @@ export const EqualizerBar: React.FC<{
           borderRadius: "4px 4px 0 0",
           boxShadow: `0 0 20px hsla(${hue}, 70%, 60%, 0.5)`,
           willChange: "transform",
+          transform: "translateZ(0)", // Force GPU layer explicitly
+          isolation: "isolate", // Prevent layer sharing issues
         }}
       />
     </div>

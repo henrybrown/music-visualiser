@@ -1,11 +1,20 @@
 import { useRef, useCallback } from "react";
-import type { EQControlNode } from "./equalizer-components";
 
 const FFT_SIZE = 2048;
 const SAMPLE_RATE = 44100;
 const SMOOTHING_TIME_CONSTANT = 0.3;
 const MIN_DECIBELS = -100;
 const MAX_DECIBELS = 0;
+
+const EQ_BANDS = [
+  { freq: 60, Q: 0.7 },
+  { freq: 250, Q: 0.7 },
+  { freq: 1000, Q: 0.7 },
+  { freq: 4000, Q: 0.7 },
+  { freq: 12000, Q: 0.7 },
+] as const;
+
+export const EQ_BAND_COUNT = EQ_BANDS.length;
 
 interface AudioAnalyserConfig {
   fftSize: number;
@@ -20,11 +29,8 @@ interface AudioAnalyserReturn {
   getFrequencyData: () => Uint8Array | null;
   audioElement: HTMLAudioElement | null;
   updateConfig: (config: AudioAnalyserConfig) => void;
-  updateEQFilters: (
-    controlNodes: EQControlNode[],
-    frequencyRanges: readonly (readonly [number, number])[],
-  ) => void;
-  initEQFilters: (frequencyRanges: readonly (readonly [number, number])[]) => void;
+  updateEQGains: (gains: number[]) => void;
+  initEQFilters: () => void;
 }
 
 export function useAudioAnalyser(): AudioAnalyserReturn {
@@ -81,6 +87,48 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
     [initAudioContext],
   );
 
+  const initEQFilters = useCallback(() => {
+    if (!audioContextRef.current) return;
+
+    eqFiltersRef.current.forEach((filter) => filter.disconnect());
+    eqFiltersRef.current = [];
+
+    for (const band of EQ_BANDS) {
+      const filter = audioContextRef.current.createBiquadFilter();
+      filter.type = "peaking";
+      filter.frequency.value = band.freq;
+      filter.Q.value = band.Q;
+      filter.gain.value = 0;
+      eqFiltersRef.current.push(filter);
+    }
+
+    if (sourceRef.current && analyserRef.current) {
+      sourceRef.current.disconnect();
+
+      if (eqFiltersRef.current.length > 0) {
+        sourceRef.current.connect(eqFiltersRef.current[0]);
+
+        for (let i = 0; i < eqFiltersRef.current.length - 1; i++) {
+          eqFiltersRef.current[i].connect(eqFiltersRef.current[i + 1]);
+        }
+
+        eqFiltersRef.current[eqFiltersRef.current.length - 1].connect(analyserRef.current);
+      } else {
+        sourceRef.current.connect(analyserRef.current);
+      }
+
+      analyserRef.current.connect(audioContextRef.current.destination);
+    }
+  }, []);
+
+  const updateEQGains = useCallback((gains: number[]) => {
+    eqFiltersRef.current.forEach((filter, index) => {
+      if (gains[index] !== undefined) {
+        filter.gain.value = gains[index];
+      }
+    });
+  }, []);
+
   const loadTrack = useCallback(
     async (src: string) => {
       initAudioContext(currentConfigRef.current);
@@ -91,6 +139,8 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
 
       if (audioElementRef.current) {
         audioElementRef.current.pause();
+        audioElementRef.current.src = "";
+        audioElementRef.current.load();
         audioElementRef.current = null;
       }
 
@@ -125,7 +175,6 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
 
       try {
         await audio.play();
-        console.log("Audio playing, context state:", audioContextRef.current?.state);
       } catch (err) {
         console.error("Audio playback error:", err);
       }
@@ -139,8 +188,12 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
       sourceRef.current = null;
     }
 
+    eqFiltersRef.current.forEach((filter) => filter.disconnect());
+
     if (audioElementRef.current) {
       audioElementRef.current.pause();
+      audioElementRef.current.src = "";
+      audioElementRef.current.load();
       audioElementRef.current = null;
     }
   }, []);
@@ -152,94 +205,13 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
     return dataArrayRef.current;
   }, []);
 
-  const initEQFilters = useCallback((frequencyRanges: readonly (readonly [number, number])[]) => {
-    if (!audioContextRef.current) return;
-
-    // Disconnect old filters
-    eqFiltersRef.current.forEach((filter) => filter.disconnect());
-    eqFiltersRef.current = [];
-
-    // Create new filters
-    for (let i = 0; i < frequencyRanges.length; i++) {
-      const filter = audioContextRef.current.createBiquadFilter();
-      filter.type = "peaking";
-
-      // Use the average of the frequency range
-      const [minHz, maxHz] = frequencyRanges[i];
-      const freq = (minHz + maxHz) / 2;
-      filter.frequency.value = freq;
-
-      filter.Q.value = 1.0;
-      filter.gain.value = 0;
-
-      eqFiltersRef.current.push(filter);
-    }
-
-    // Reconnect the audio chain if source exists
-    if (sourceRef.current && analyserRef.current) {
-      sourceRef.current.disconnect();
-
-      if (eqFiltersRef.current.length > 0) {
-        sourceRef.current.connect(eqFiltersRef.current[0]);
-
-        for (let i = 0; i < eqFiltersRef.current.length - 1; i++) {
-          eqFiltersRef.current[i].connect(eqFiltersRef.current[i + 1]);
-        }
-
-        eqFiltersRef.current[eqFiltersRef.current.length - 1].connect(analyserRef.current);
-      } else {
-        sourceRef.current.connect(analyserRef.current);
-      }
-
-      analyserRef.current.connect(audioContextRef.current.destination);
-    }
-  }, []);
-
-  const updateEQFilters = useCallback(
-    (controlNodes: EQControlNode[], frequencyRanges: readonly (readonly [number, number])[]) => {
-      if (eqFiltersRef.current.length !== frequencyRanges.length) {
-        initEQFilters(frequencyRanges);
-      }
-
-      if (controlNodes.length === 0) {
-        eqFiltersRef.current.forEach((filter) => {
-          filter.gain.value = 0;
-        });
-        return;
-      }
-
-      const sortedNodes = [...controlNodes].sort((a, b) => a.barIndex - b.barIndex);
-
-      eqFiltersRef.current.forEach((filter, barIndex) => {
-        let lowerNode = sortedNodes[0];
-        let upperNode = sortedNodes[sortedNodes.length - 1];
-
-        for (let i = 0; i < sortedNodes.length - 1; i++) {
-          if (barIndex >= sortedNodes[i].barIndex && barIndex <= sortedNodes[i + 1].barIndex) {
-            lowerNode = sortedNodes[i];
-            upperNode = sortedNodes[i + 1];
-            break;
-          }
-        }
-
-        const range = upperNode.barIndex - lowerNode.barIndex;
-        const t = range === 0 ? 0 : (barIndex - lowerNode.barIndex) / range;
-
-        const interpolatedGain = lowerNode.gain + t * (upperNode.gain - lowerNode.gain);
-
-        filter.gain.value = interpolatedGain;
-      });
-    },
-    [initEQFilters],
-  );
-
   return {
     loadTrack,
     stop,
     getFrequencyData,
     audioElement: audioElementRef.current,
     updateConfig,
-    updateEQFilters,
+    updateEQGains,
     initEQFilters,
   };
 }
