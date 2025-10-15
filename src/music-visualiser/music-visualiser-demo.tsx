@@ -12,7 +12,7 @@ import {
 } from "./control-panel";
 import EQOverlay, { getDefaultEQNodes, type EQControlNode } from "./equalizer-components";
 import { useAudioAnalyser } from "./audio-analysis";
-import { subdivideFrequencyRanges, calculateHeight } from "./visualizer-components";
+import { subdivideFrequencyRanges, calculateAudioLevel } from "./visualizer-components";
 import styles from "./music-visualiser-demo.module.css";
 
 const FFT_SIZE = 2048;
@@ -159,19 +159,16 @@ const MusicVisualizerDemo: React.FC = () => {
       const dataArray = audioAnalyser.getFrequencyData();
       if (!dataArray) return;
 
-      const targets = new Map<string, number>();
       for (let i = 0; i < BAR_COUNT; i++) {
-        const height = calculateHeight(dataArray, i, activeFrequencyRanges, scaledFftSize);
-        const scaleValue = height / BASE_HEIGHT;  // e.g., 2.5
-        const capPixels = (scaleValue - 1) * BASE_HEIGHT;  // e.g., 45
+        const audioLevel = calculateAudioLevel(
+          dataArray,
+          i,
+          activeFrequencyRanges,
+          scaledFftSize
+        );
 
-        // Full keys: entityId-elementId-eventName
-        targets.set(`bar-${i}-bar-updateHeight`, scaleValue);  // 1-3 range
-        targets.set(`bar-${i}-glow-updateHeight`, scaleValue);  // 1-3 range
-        targets.set(`bar-${i}-cap-updateHeight`, capPixels);   // 0-60 range
+        engine.updateEntityContext(`bar-${i}`, { audioLevel });
       }
-
-      engine.updateSpringTargets(targets);
     };
 
     // Much faster interval for springs (they smooth it out)

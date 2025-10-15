@@ -9,8 +9,9 @@ export interface EntityContext {
 interface SpringData {
   spring: Spring;
   animation: Animation;
-  range: [number, number];
   duration: number;
+  trackContext?: (context: Record<string, unknown>) => number;
+  entityId: string;
 }
 
 export interface WebAnimationEngine {
@@ -77,8 +78,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const animDef = typeof animDefOrFn === "function" ? animDefOrFn(context) : animDefOrFn;
 
       if (isSpringAnimation(animDef)) {
-        const [min] = animDef.springRange;
-        const spring = createSpring(min, animDef.springConfig || SPRING_PRESETS.visualizer);
+        const spring = createSpring(0, animDef.springConfig || SPRING_PRESETS.visualizer);
 
         const animation = element.animate(
           animDef.keyframes,
@@ -94,8 +94,9 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
         springs.set(animKey, {
           spring,
           animation,
-          range: animDef.springRange,
-          duration: animation.effect!.getTiming().duration as number
+          duration: animation.effect!.getTiming().duration as number,
+          trackContext: animDef.trackContext,
+          entityId
         });
       } else {
         const animation = element.animate(animDef.keyframes, {
@@ -171,12 +172,16 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
       lastTime = currentTime;
 
-      springs.forEach(({ spring, animation, range, duration }) => {
-        const value = spring.tick(deltaTime);
-        const [min, max] = range;
+      springs.forEach(({ spring, animation, duration, trackContext, entityId }) => {
+        if (trackContext) {
+          const context = entityContexts.get(entityId) || {};
+          const targetValue = trackContext(context);
+          spring.setTarget(targetValue);
+        }
 
-        const normalized = Math.max(0, Math.min(1, (value - min) / (max - min)));
-        animation.currentTime = normalized * duration;
+        const progress = spring.tick(deltaTime);
+        const clamped = Math.max(0, Math.min(1, progress));
+        animation.currentTime = clamped * duration;
       });
 
       if (springs.size > 0) {

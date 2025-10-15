@@ -96,6 +96,34 @@ export function calculateHeight(
   return Math.max(BASE_HEIGHT, scaled * 300);
 }
 
+export function calculateAudioLevel(
+  dataArray: Uint8Array,
+  barIndex: number,
+  frequencyRanges: readonly (readonly [number, number])[],
+  fftSize: number,
+  sampleRate: number = 44100,
+): number {
+  const hzPerBin = sampleRate / 2 / (fftSize / 2);
+
+  if (barIndex >= frequencyRanges.length) return 0;
+
+  const [minHz, maxHz] = frequencyRanges[barIndex];
+  const startBin = Math.max(1, Math.floor(minHz / hzPerBin));
+  const endBin = Math.min(dataArray.length, Math.floor(maxHz / hzPerBin));
+
+  let sum = 0;
+  let count = 0;
+
+  for (let i = startBin; i < endBin; i++) {
+    sum += dataArray[i];
+    count++;
+  }
+
+  const average = count > 0 ? sum / count : 0;
+
+  return average / 255;
+}
+
 interface EqualizerBarProps {
   barId: string;
   frequencyRanges: readonly (readonly [number, number])[];

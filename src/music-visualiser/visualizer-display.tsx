@@ -1,6 +1,9 @@
 import React, { useMemo, useCallback, useRef, useEffect } from "react";
 import { useAnimationRegistration } from "../../gameplay/animations/use-animation-registration";
-import type { AnimationDefinition, SpringAnimationDefinition } from "../../gameplay/animations/animation-types";
+import type {
+  AnimationDefinition,
+  SpringAnimationDefinition,
+} from "../../gameplay/animations/animation-types";
 import styles from "./music-visualiser-demo.module.css";
 import { SPRING_PRESETS } from "../../gameplay/animations/";
 
@@ -29,13 +32,10 @@ export const EqualizerBar: React.FC<{
   const animations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
-        keyframes: [
-          { transform: 'scaleY(1)' },
-          { transform: 'scaleY(3)' }
-        ],
-        springRange: [1, 3],
+        keyframes: [{ transform: "scaleY(1)" }, { transform: "scaleY(10)" }],
         springConfig: SPRING_PRESETS.visualizer,
-        options: { duration: 1000 }
+        options: { duration: 1000 },
+        trackContext: (context) => (context.audioLevel as number) ?? 0,
       },
     }),
     [],
@@ -44,13 +44,10 @@ export const EqualizerBar: React.FC<{
   const capAnimations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
-        keyframes: [
-          { transform: 'translateY(0px)' },
-          { transform: 'translateY(-60px)' }
-        ],
-        springRange: [0, 60],
+        keyframes: [{ transform: "translateY(0px)" }, { transform: "translateY(-270px)" }],
         springConfig: SPRING_PRESETS.visualizer,
-        options: { duration: 1000 }
+        options: { duration: 1000 },
+        trackContext: (context) => (context.audioLevel as number) ?? 0,
       },
     }),
     [],
@@ -59,13 +56,10 @@ export const EqualizerBar: React.FC<{
   const glowAnimations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
-        keyframes: [
-          { transform: 'scaleY(1)' },
-          { transform: 'scaleY(3)' }
-        ],
-        springRange: [1, 3],
+        keyframes: [{ transform: "scaleY(1)" }, { transform: "scaleY(10)" }],
         springConfig: { ...SPRING_PRESETS.visualizer, damping: 12 },
-        options: { duration: 1000 }
+        options: { duration: 1000 },
+        trackContext: (context) => (context.audioLevel as number) ?? 0,
       },
     }),
     [],
