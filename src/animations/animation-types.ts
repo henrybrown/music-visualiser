@@ -7,8 +7,9 @@ export interface WaapiAnimationDefinition {
 
 export interface SpringAnimationDefinition {
   keyframes: Keyframe[];
-  springProperty: 'scaleY' | 'translateY';
+  springRange: [number, number];
   springConfig?: SpringConfig;
+  options?: KeyframeAnimationOptions;
 }
 
 export type AnimationDefinitionStatic = WaapiAnimationDefinition | SpringAnimationDefinition;
@@ -30,11 +31,11 @@ export interface AnimationTransition {
 export const isSpringAnimation = (
   def: AnimationDefinitionStatic
 ): def is SpringAnimationDefinition => {
-  return 'springProperty' in def;
+  return 'springRange' in def;
 };
 
 export const isWaapiAnimation = (
   def: AnimationDefinitionStatic
 ): def is WaapiAnimationDefinition => {
-  return !('springProperty' in def);
+  return !('springRange' in def);
 };

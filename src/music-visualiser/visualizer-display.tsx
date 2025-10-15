@@ -29,9 +29,13 @@ export const EqualizerBar: React.FC<{
   const animations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
-        keyframes: [{ transform: `scaleY(1)` }],
-        springProperty: "scaleY",
+        keyframes: [
+          { transform: 'scaleY(1)' },
+          { transform: 'scaleY(3)' }
+        ],
+        springRange: [1, 3],
         springConfig: SPRING_PRESETS.visualizer,
+        options: { duration: 1000 }
       },
     }),
     [],
@@ -40,19 +44,28 @@ export const EqualizerBar: React.FC<{
   const capAnimations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
-        keyframes: [{ transform: `translateY(0px)` }],
-        springProperty: "translateY",
+        keyframes: [
+          { transform: 'translateY(0px)' },
+          { transform: 'translateY(-60px)' }
+        ],
+        springRange: [0, 60],
         springConfig: SPRING_PRESETS.visualizer,
+        options: { duration: 1000 }
       },
     }),
     [],
   );
+
   const glowAnimations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
-        keyframes: [{ transform: `scaleY(1)` }],
-        springProperty: "scaleY",
+        keyframes: [
+          { transform: 'scaleY(1)' },
+          { transform: 'scaleY(3)' }
+        ],
+        springRange: [1, 3],
         springConfig: { ...SPRING_PRESETS.visualizer, damping: 12 },
+        options: { duration: 1000 }
       },
     }),
     [],

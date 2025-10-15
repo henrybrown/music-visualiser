@@ -8,9 +8,9 @@ export interface EntityContext {
 
 interface SpringData {
   spring: Spring;
-  element: HTMLElement;
-  property: 'scaleY' | 'translateY';
-  baseHeight: number;
+  animation: Animation;
+  range: [number, number];
+  duration: number;
 }
 
 export interface WebAnimationEngine {
@@ -60,8 +60,6 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
   let rafId: number | null = null;
   let lastTime = 0;
 
-  const BASE_HEIGHT = 30;
-
   const register = (
     entityId: string,
     elementId: string,
@@ -78,18 +76,28 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const context = entityContexts.get(entityId) || {};
       const animDef = typeof animDefOrFn === "function" ? animDefOrFn(context) : animDefOrFn;
 
-      // DETECTION: Check if spring or WAAPI
       if (isSpringAnimation(animDef)) {
-        const spring = createSpring(1, animDef.springConfig || SPRING_PRESETS.visualizer);
+        const [min, max] = animDef.springRange;
+        const spring = createSpring(min, animDef.springConfig || SPRING_PRESETS.visualizer);
+
+        const animation = element.animate(
+          animDef.keyframes,
+          {
+            ...animDef.options,
+            duration: animDef.options?.duration ?? 1000,
+            fill: 'forwards'
+          }
+        );
+
+        animation.pause();
 
         springs.set(animKey, {
           spring,
-          element,
-          property: animDef.springProperty,
-          baseHeight: BASE_HEIGHT
+          animation,
+          range: animDef.springRange,
+          duration: animation.effect!.getTiming().duration as number
         });
       } else {
-        // Existing WAAPI code
         const animation = element.animate(animDef.keyframes, {
           ...animDef.options,
           fill: "forwards",
@@ -116,8 +124,11 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       }
     });
 
-    springs.forEach((_, key) => {
+    springs.forEach((springData, key) => {
       if (key.startsWith(animKeyPrefix)) {
+        try {
+          springData.animation.cancel();
+        } catch (e) {}
         keysToDelete.push(key);
       }
     });
@@ -160,18 +171,12 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
       lastTime = currentTime;
 
-      springs.forEach(({ spring, element, property, baseHeight }) => {
+      springs.forEach(({ spring, animation, range, duration }) => {
         const value = spring.tick(deltaTime);
+        const [min, max] = range;
 
-        switch (property) {
-          case 'scaleY':
-            element.style.transform = `scaleY(${value})`;
-            break;
-          case 'translateY':
-            const translateY = -(value - 1) * baseHeight;
-            element.style.transform = `translateY(${translateY}px)`;
-            break;
-        }
+        const normalized = Math.max(0, Math.min(1, (value - min) / (max - min)));
+        animation.currentTime = normalized * duration;
       });
 
       if (springs.size > 0) {
@@ -222,18 +227,10 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
         const animKey = `${entityId}-${elementId}-${transition.event}`;
 
-        // Handle spring animations (NEW)
         if (isSpringAnimation(animDef)) {
-          const springData = springs.get(animKey);
-          if (springData) {
-            const targetKeyframe = animDef.keyframes[0];
-            const scaleYMatch = (targetKeyframe.transform as string)?.match(/scaleY\(([\d.]+)\)/);
-            if (scaleYMatch) {
-              springData.spring.setTarget(parseFloat(scaleYMatch[1]));
-            }
-          }
+          // Springs don't use playTransitions - they use updateSpringTargets
+          // This is here for compatibility but does nothing
         } else {
-          // Existing WAAPI code (unchanged)
           const animation = animations.get(animKey);
           if (!animation) return;
 
@@ -268,7 +265,10 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
   const cancelAll = () => {
     animations.forEach((anim) => anim.cancel());
     animations.clear();
+
+    springs.forEach((springData) => springData.animation.cancel());
     springs.clear();
+
     stopSpringLoop();
   };
 
