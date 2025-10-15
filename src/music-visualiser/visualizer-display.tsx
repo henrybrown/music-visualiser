@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useRef, useEffect } from "react";
 import { useAnimationRegistration } from "../../gameplay/animations/use-animation-registration";
-import type { AnimationDefinition } from "../../gameplay/animations/animation-types";
+import type { AnimationDefinition, SpringAnimationDefinition } from "../../gameplay/animations/animation-types";
 import styles from "./music-visualiser-demo.module.css";
 import { SPRING_PRESETS } from "../../gameplay/animations/";
 
@@ -25,81 +25,37 @@ export const EqualizerBar: React.FC<{
       console.log(`[Bar ${barIndex}] Rendered ${renderCount.current} times`);
     }
   });
-  const getAnimationTiming = useCallback((context: Record<string, unknown>) => {
-    const targetHeight = (context.targetHeight as number) || BASE_HEIGHT;
-    const previousHeight = (context.previousHeight as number) || BASE_HEIGHT;
-    const barResponse = (context.barResponse as number) || UPDATE_INTERVAL_MS;
-    const barDecay = (context.barDecay as number) || BAR_FALL_DURATION;
-    const isRising = targetHeight > previousHeight;
 
-    return {
-      duration: isRising ? barResponse : barDecay,
-      easing: isRising ? "ease-out" : "ease-out",
-      targetHeight,
-    };
-  }, []);
-
-  const getGlowTiming = useCallback((context: Record<string, unknown>) => {
-    const targetHeight = (context.targetHeight as number) || BASE_HEIGHT;
-
-    return {
-      duration: 100,
-      easing: "ease-out" as const,
-      targetHeight,
-    };
-  }, []);
-
-  const animations: Record<string, AnimationDefinition> = useMemo(
+  const animations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
-      updateHeight: (context: Record<string, unknown>) => {
-        const { duration, easing, targetHeight } = getAnimationTiming(context);
-        const scale = targetHeight / BASE_HEIGHT;
-
-        return {
-          keyframes: [{ transform: `scaleY(${scale})` }],
-          options: { duration, easing, fill: "forwards" },
-          mode: "spring", // NEW!
-          springConfig: SPRING_PRESETS.visualizer, // NEW!
-        };
-      },
-    }),
-    [getAnimationTiming],
-  );
-
-  const capAnimations: Record<string, AnimationDefinition> = useMemo(
-    () => ({
-      updateHeight: (context: Record<string, unknown>) => {
-        const { targetHeight, barResponse, barDecay, previousHeight } = context;
-        const height = (targetHeight as number) || BASE_HEIGHT;
-        const prevHeight = (previousHeight as number) || BASE_HEIGHT;
-        const translateY = -(height - BASE_HEIGHT);
-
-        const isRising = height > prevHeight;
-        const duration = isRising ? (barResponse as number) : (barDecay as number);
-
-        return {
-          keyframes: [{ transform: `translateY(${translateY}px)` }],
-          options: { duration, easing: "ease-out", fill: "forwards" },
-          mode: "tween", // ← Keep as tween, NOT spring
-        };
+      updateHeight: {
+        keyframes: [{ transform: `scaleY(1)` }],
+        springProperty: "scaleY",
+        springConfig: SPRING_PRESETS.visualizer,
       },
     }),
     [],
   );
-  const glowAnimations: Record<string, AnimationDefinition> = useMemo(
-    () => ({
-      updateHeight: (context: Record<string, unknown>) => {
-        const { duration, easing, targetHeight } = getGlowTiming(context);
-        const scale = targetHeight / BASE_HEIGHT;
-        const glowScale = scale * 1.2;
 
-        return {
-          keyframes: [{ transform: `scaleY(${glowScale})` }],
-          options: { duration, easing, fill: "forwards" },
-        };
+  const capAnimations: Record<string, SpringAnimationDefinition> = useMemo(
+    () => ({
+      updateHeight: {
+        keyframes: [{ transform: `translateY(0px)` }],
+        springProperty: "translateY",
+        springConfig: SPRING_PRESETS.visualizer,
       },
     }),
-    [getGlowTiming],
+    [],
+  );
+  const glowAnimations: Record<string, SpringAnimationDefinition> = useMemo(
+    () => ({
+      updateHeight: {
+        keyframes: [{ transform: `scaleY(1)` }],
+        springProperty: "scaleY",
+        springConfig: { ...SPRING_PRESETS.visualizer, damping: 12 },
+      },
+    }),
+    [],
   );
 
   const { createAnimationRef } = useAnimationRegistration(barId, {
@@ -168,10 +124,11 @@ export const EqualizerBar: React.FC<{
         ref={createAnimationRef("cap", capAnimations)}
         style={{
           position: "absolute",
-          bottom: `${BASE_HEIGHT - 1}px`,
+          bottom: `${BASE_HEIGHT}px`,
           left: "0",
           width: `${barWidth}px`,
           height: `${CAP_HEIGHT}px`,
+          transformOrigin: "bottom",
           background: `linear-gradient(180deg, hsl(${hue}, 70%, 75%) 0%, hsl(${hue}, 70%, 70%) 100%)`,
           borderRadius: "4px 4px 0 0",
           boxShadow: `0 0 20px hsla(${hue}, 70%, 60%, 0.5)`,

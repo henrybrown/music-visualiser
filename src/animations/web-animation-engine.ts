@@ -168,7 +168,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
             element.style.transform = `scaleY(${value})`;
             break;
           case 'translateY':
-            const translateY = (value - 1) * baseHeight;
+            const translateY = -(value - 1) * baseHeight;
             element.style.transform = `translateY(${translateY}px)`;
             break;
         }
@@ -211,7 +211,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
       const index = getIndex?.(entityId) ?? 0;
 
-      entityElements.forEach(({ element, animations: animationDefs }, elementId) => {
+      entityElements.forEach(({ animations: animationDefs }, elementId) => {
         const animDefOrFn = animationDefs[transition.event];
         if (!animDefOrFn) {
           return;
