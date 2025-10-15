@@ -77,7 +77,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const animDef = typeof animDefOrFn === "function" ? animDefOrFn(context) : animDefOrFn;
 
       if (isSpringAnimation(animDef)) {
-        const [min, max] = animDef.springRange;
+        const [min] = animDef.springRange;
         const spring = createSpring(min, animDef.springConfig || SPRING_PRESETS.visualizer);
 
         const animation = element.animate(

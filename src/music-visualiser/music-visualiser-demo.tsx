@@ -162,12 +162,13 @@ const MusicVisualizerDemo: React.FC = () => {
       const targets = new Map<string, number>();
       for (let i = 0; i < BAR_COUNT; i++) {
         const height = calculateHeight(dataArray, i, activeFrequencyRanges, scaledFftSize);
-        const scaleValue = height / BASE_HEIGHT;
+        const scaleValue = height / BASE_HEIGHT;  // e.g., 2.5
+        const capPixels = (scaleValue - 1) * BASE_HEIGHT;  // e.g., 45
 
         // Full keys: entityId-elementId-eventName
-        targets.set(`bar-${i}-bar-updateHeight`, scaleValue);
-        targets.set(`bar-${i}-glow-updateHeight`, scaleValue);
-        targets.set(`bar-${i}-cap-updateHeight`, scaleValue);
+        targets.set(`bar-${i}-bar-updateHeight`, scaleValue);  // 1-3 range
+        targets.set(`bar-${i}-glow-updateHeight`, scaleValue);  // 1-3 range
+        targets.set(`bar-${i}-cap-updateHeight`, capPixels);   // 0-60 range
       }
 
       engine.updateSpringTargets(targets);
