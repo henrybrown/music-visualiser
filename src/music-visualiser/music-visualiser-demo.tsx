@@ -25,7 +25,6 @@ const MusicVisualizerDemo: React.FC = () => {
   const [showEQ, setShowEQ] = useState(true);
   const [eqControlNodes, setEqControlNodes] = useState<EQControlNode[]>([]);
   const [audioRefreshRate, setAudioRefreshRate] = useState(2000);
-  const [inputSmoothing, setInputSmoothing] = useState(0.1);
 
   const minDecibels = -255 + dbRangeMin;
   const maxDecibels = -255 + dbRangeMax;
@@ -63,7 +62,6 @@ const MusicVisualizerDemo: React.FC = () => {
   const engine = useAnimationEngine();
 
   const intervalRef = useRef<number | null>(null);
-  const smoothedLevelsRef = useRef<Map<number, number>>(new Map());
 
   const handlePlay = useCallback(() => {
     audioAnalyser.loadTrack("/sample_audio_for_animation_demo.wav");
@@ -123,17 +121,8 @@ const MusicVisualizerDemo: React.FC = () => {
       const dataArray = audioAnalyser.getFrequencyData();
       if (!dataArray) return;
 
-      const smoothingFactor = inputSmoothing;
-
       for (let i = 0; i < BAR_COUNT; i++) {
-        let rawAudioLevel = calculateAudioLevel(dataArray, i, activeFrequencyRanges, scaledFftSize);
-
-        // Exponential smoothing: smooth = smooth * factor + raw * (1 - factor)
-        const previousSmoothed = smoothedLevelsRef.current.get(i) ?? rawAudioLevel;
-        let audioLevel = previousSmoothed * smoothingFactor + rawAudioLevel * (1 - smoothingFactor);
-
-        smoothedLevelsRef.current.set(i, audioLevel);
-
+        const audioLevel = calculateAudioLevel(dataArray, i, activeFrequencyRanges, scaledFftSize);
         engine.updateEntityContext(`bar-${i}`, { audioLevel });
       }
     };
@@ -154,7 +143,6 @@ const MusicVisualizerDemo: React.FC = () => {
     BAR_COUNT,
     scaledFftSize,
     audioRefreshRate,
-    inputSmoothing,
   ]);
 
   const frequencyLabels = useMemo(() => {
@@ -193,7 +181,6 @@ const MusicVisualizerDemo: React.FC = () => {
     setBarDensity(1);
     setVisualizerMode("extreme");
     setAudioRefreshRate(2000);
-    setInputSmoothing(0.1);
     setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
   }, [BAR_COUNT]);
 
@@ -283,8 +270,6 @@ const MusicVisualizerDemo: React.FC = () => {
           onVisualizerModeChange={setVisualizerMode}
           audioRefreshRate={audioRefreshRate}
           onAudioRefreshRateChange={setAudioRefreshRate}
-          inputSmoothing={inputSmoothing}
-          onInputSmoothingChange={setInputSmoothing}
           onResetAll={handleResetAll}
           isPlaying={isPlaying}
         />

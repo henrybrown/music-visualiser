@@ -16,8 +16,6 @@ export interface ControlPanelProps {
   onVisualizerModeChange: (value: 'extreme' | 'bouncy' | 'smooth' | 'stiff') => void;
   audioRefreshRate: number;
   onAudioRefreshRateChange: (value: number) => void;
-  inputSmoothing: number;
-  onInputSmoothingChange: (value: number) => void;
   onResetAll: () => void;
   isPlaying: boolean;
 }
@@ -35,8 +33,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onVisualizerModeChange,
   audioRefreshRate,
   onAudioRefreshRateChange,
-  inputSmoothing,
-  onInputSmoothingChange,
   onResetAll,
   isPlaying,
 }) => {
@@ -93,25 +89,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           step="16"
           value={audioRefreshRate}
           onChange={(e) => onAudioRefreshRateChange(Number(e.target.value))}
-          className={styles.controlSlider}
-          disabled={isPlaying}
-        />
-      </div>
-
-      <div className={styles.controlGroup}>
-        <label className={styles.controlLabel}>
-          Input Smoothing
-          <span className={styles.controlHint}>
-            {(inputSmoothing * 100).toFixed(0)}%
-          </span>
-        </label>
-        <input
-          type="range"
-          min="0"
-          max="0.95"
-          step="0.05"
-          value={inputSmoothing}
-          onChange={(e) => onInputSmoothingChange(Number(e.target.value))}
           className={styles.controlSlider}
           disabled={isPlaying}
         />
