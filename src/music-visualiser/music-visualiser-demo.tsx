@@ -4,15 +4,11 @@ import {
   useAnimationEngine,
 } from "../../gameplay/animations/animation-engine-context";
 import { VisualizerDisplay } from "./visualizer-display";
-import {
-  ControlPanel,
-  SMOOTHING_TIME_CONSTANT,
-  UPDATE_INTERVAL_MS,
-  BAR_FALL_DURATION,
-} from "./control-panel";
+import { ControlPanel, SMOOTHING_TIME_CONSTANT } from "./control-panel";
 import EQOverlay, { getDefaultEQNodes, type EQControlNode } from "./equalizer-components";
 import { useAudioAnalyser } from "./audio-analysis";
 import { subdivideFrequencyRanges, calculateAudioLevel } from "./visualizer-components";
+import { VISUALIZER_MODES, type VisualizerMode } from "../../gameplay/animations";
 import styles from "./music-visualiser-demo.module.css";
 
 const FFT_SIZE = 2048;
@@ -23,17 +19,13 @@ const MusicVisualizerDemo: React.FC = () => {
   const [smoothing, setSmoothing] = useState(SMOOTHING_TIME_CONSTANT);
   const [dbRangeMin, setDbRangeMin] = useState(170);
   const [dbRangeMax, setDbRangeMax] = useState(245);
-  const [barResponse, setBarResponse] = useState(UPDATE_INTERVAL_MS);
-  const [barDecay, setBarDecay] = useState(BAR_FALL_DURATION);
+  const [visualizerMode, setVisualizerMode] = useState<VisualizerMode>("extreme");
   const [barDensity, setBarDensity] = useState<1 | 2 | 4>(1);
   const [showControls, setShowControls] = useState(false);
   const [showEQ, setShowEQ] = useState(true);
   const [eqControlNodes, setEqControlNodes] = useState<EQControlNode[]>([]);
-  const [debugStats, setDebugStats] = useState({
-    activeAnimations: 0,
-    lastUpdateTime: 0,
-    avgUpdateTime: 0,
-  });
+  const [audioRefreshRate, setAudioRefreshRate] = useState(2000);
+  const [inputSmoothing, setInputSmoothing] = useState(0.1);
 
   const minDecibels = -255 + dbRangeMin;
   const maxDecibels = -255 + dbRangeMax;
@@ -71,17 +63,7 @@ const MusicVisualizerDemo: React.FC = () => {
   const engine = useAnimationEngine();
 
   const intervalRef = useRef<number | null>(null);
-
-  const resetBars = useCallback(() => {
-    for (let i = 0; i < BAR_COUNT; i++) {
-      engine.updateEntityContext(`bar-${i}`, {
-        targetHeight: BASE_HEIGHT,
-        previousHeight: BASE_HEIGHT,
-        barResponse,
-        barDecay,
-      });
-    }
-  }, [engine, BAR_COUNT, barResponse, barDecay]);
+  const smoothedLevelsRef = useRef<Map<number, number>>(new Map());
 
   const handlePlay = useCallback(() => {
     audioAnalyser.loadTrack("/sample_audio_for_animation_demo.wav");
@@ -95,8 +77,7 @@ const MusicVisualizerDemo: React.FC = () => {
       intervalRef.current = null;
     }
     setIsPlaying(false);
-    resetBars();
-  }, [audioAnalyser.stop, resetBars]);
+  }, [audioAnalyser.stop]);
 
   const handleTrackEnd = useCallback(() => {
     setIsPlaying(false);
@@ -104,24 +85,7 @@ const MusicVisualizerDemo: React.FC = () => {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-
-    for (let i = 0; i < BAR_COUNT; i++) {
-      const context = engine.getEntityContext(`bar-${i}`);
-      const previousHeight = (context?.targetHeight as number) || BASE_HEIGHT;
-
-      engine.updateEntityContext(`bar-${i}`, {
-        targetHeight: BASE_HEIGHT,
-        previousHeight,
-        barResponse,
-        barDecay,
-      });
-    }
-
-    const transitions = new Map(
-      Array.from({ length: BAR_COUNT }).map((_, i) => [`bar-${i}`, { event: "updateHeight" }]),
-    );
-    engine.playTransitions(transitions).finally(resetBars);
-  }, [engine, BAR_COUNT, barResponse, barDecay, resetBars]);
+  }, []);
 
   useEffect(() => {
     if (audioAnalyser.audioElement) {
@@ -159,20 +123,22 @@ const MusicVisualizerDemo: React.FC = () => {
       const dataArray = audioAnalyser.getFrequencyData();
       if (!dataArray) return;
 
+      const smoothingFactor = inputSmoothing;
+
       for (let i = 0; i < BAR_COUNT; i++) {
-        const audioLevel = calculateAudioLevel(
-          dataArray,
-          i,
-          activeFrequencyRanges,
-          scaledFftSize
-        );
+        let rawAudioLevel = calculateAudioLevel(dataArray, i, activeFrequencyRanges, scaledFftSize);
+
+        // Exponential smoothing: smooth = smooth * factor + raw * (1 - factor)
+        const previousSmoothed = smoothedLevelsRef.current.get(i) ?? rawAudioLevel;
+        let audioLevel = previousSmoothed * smoothingFactor + rawAudioLevel * (1 - smoothingFactor);
+
+        smoothedLevelsRef.current.set(i, audioLevel);
 
         engine.updateEntityContext(`bar-${i}`, { audioLevel });
       }
     };
 
-    // Much faster interval for springs (they smooth it out)
-    intervalRef.current = window.setInterval(update, 16); // 60fps updates
+    intervalRef.current = window.setInterval(update, audioRefreshRate);
 
     return () => {
       if (intervalRef.current) {
@@ -184,11 +150,11 @@ const MusicVisualizerDemo: React.FC = () => {
     isPlaying,
     audioAnalyser.getFrequencyData,
     engine,
-    barResponse,
-    barDecay,
     activeFrequencyRanges,
     BAR_COUNT,
     scaledFftSize,
+    audioRefreshRate,
+    inputSmoothing,
   ]);
 
   const frequencyLabels = useMemo(() => {
@@ -220,17 +186,14 @@ const MusicVisualizerDemo: React.FC = () => {
     return labels;
   }, [activeFrequencyRanges]);
 
-  const handleResetEQ = useCallback(() => {
-    setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
-  }, [BAR_COUNT]);
-
   const handleResetAll = useCallback(() => {
-    setBarResponse(UPDATE_INTERVAL_MS);
-    setBarDecay(BAR_FALL_DURATION);
     setSmoothing(SMOOTHING_TIME_CONSTANT);
     setDbRangeMin(170);
     setDbRangeMax(245);
     setBarDensity(1);
+    setVisualizerMode("extreme");
+    setAudioRefreshRate(2000);
+    setInputSmoothing(0.1);
     setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
   }, [BAR_COUNT]);
 
@@ -241,6 +204,7 @@ const MusicVisualizerDemo: React.FC = () => {
           barCount={BAR_COUNT}
           barWidth={barWidth}
           frequencyRanges={activeFrequencyRanges}
+          visualizerMode={visualizerMode}
         >
           {showEQ && (
             <EQOverlay
@@ -259,28 +223,6 @@ const MusicVisualizerDemo: React.FC = () => {
             <span key={index}>{label}</span>
           ))}
         </div>
-
-        {isPlaying && (
-          <div
-            style={{
-              marginTop: "0.5rem",
-              padding: "0.5rem",
-              background: "rgba(0, 0, 0, 0.02)",
-              borderRadius: "4px",
-              fontSize: "0.7rem",
-              fontFamily: "Monaco, monospace",
-              color: "#64748b",
-              display: "flex",
-              gap: "1rem",
-              justifyContent: "center",
-            }}
-          >
-            <span>Active: {debugStats.activeAnimations}</span>
-            <span>Last: {debugStats.lastUpdateTime.toFixed(1)}ms</span>
-            <span>Avg: {debugStats.avgUpdateTime.toFixed(1)}ms</span>
-            <span>Target: {barResponse}ms</span>
-          </div>
-        )}
       </div>
 
       <div className={styles.controls}>
@@ -313,27 +255,38 @@ const MusicVisualizerDemo: React.FC = () => {
         >
           ⚙️ {showControls ? "Hide" : "Settings"}
         </button>
+
+        <button
+          onClick={() => {
+            // Set all bars to random targets to test bounce
+            for (let i = 0; i < BAR_COUNT; i++) {
+              engine.updateEntityContext(`bar-${i}`, { audioLevel: Math.random() });
+            }
+          }}
+          className={`${styles.button}`}
+        >
+          🎲 Random Jump
+        </button>
       </div>
 
       {showControls && (
         <ControlPanel
-          barDensity={barDensity}
-          barCount={BAR_COUNT}
-          barResponse={barResponse}
-          barDecay={barDecay}
           smoothing={smoothing}
+          onSmoothingChange={setSmoothing}
           dbRangeMin={dbRangeMin}
           dbRangeMax={dbRangeMax}
-          minDecibels={minDecibels}
-          maxDecibels={maxDecibels}
-          onBarDensityChange={setBarDensity}
-          onBarResponseChange={setBarResponse}
-          onBarDecayChange={setBarDecay}
-          onSmoothingChange={setSmoothing}
           onDbRangeMinChange={setDbRangeMin}
           onDbRangeMaxChange={setDbRangeMax}
-          onResetEQ={handleResetEQ}
+          barDensity={barDensity}
+          onBarDensityChange={setBarDensity}
+          visualizerMode={visualizerMode}
+          onVisualizerModeChange={setVisualizerMode}
+          audioRefreshRate={audioRefreshRate}
+          onAudioRefreshRateChange={setAudioRefreshRate}
+          inputSmoothing={inputSmoothing}
+          onInputSmoothingChange={setInputSmoothing}
           onResetAll={handleResetAll}
+          isPlaying={isPlaying}
         />
       )}
     </div>

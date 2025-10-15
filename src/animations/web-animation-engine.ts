@@ -80,14 +80,11 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       if (isSpringAnimation(animDef)) {
         const spring = createSpring(0, animDef.springConfig || SPRING_PRESETS.visualizer);
 
-        const animation = element.animate(
-          animDef.keyframes,
-          {
-            ...animDef.options,
-            duration: animDef.options?.duration ?? 1000,
-            fill: 'forwards'
-          }
-        );
+        const animation = element.animate(animDef.keyframes, {
+          ...animDef.options,
+          duration: animDef.options?.duration ?? 1000,
+          fill: "forwards",
+        });
 
         animation.pause();
 
@@ -96,7 +93,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
           animation,
           duration: animation.effect!.getTiming().duration as number,
           trackContext: animDef.trackContext,
-          entityId
+          entityId,
         });
       } else {
         const animation = element.animate(animDef.keyframes, {
@@ -149,6 +146,12 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
   const updateEntityContext = (entityId: string, context: EntityContext) => {
     const existing = entityContexts.get(entityId) || {};
     entityContexts.set(entityId, { ...existing, ...context });
+
+    // Auto-restart RAF loop if it stopped and we have springs
+    // This ensures context changes immediately trigger animation updates
+    if (!rafId && springs.size > 0) {
+      startSpringLoop();
+    }
   };
 
   const getEntityContext = (entityId: string) => {
@@ -165,33 +168,66 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
   };
 
   const startSpringLoop = () => {
+    // Guard: Prevent multiple RAF loops from running simultaneously
     if (rafId) return;
 
     const tick = (currentTime: number) => {
+      // Initialize lastTime on first frame
       if (!lastTime) lastTime = currentTime;
+
+      // Calculate time elapsed since last frame (capped at 100ms to prevent physics explosions)
       const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
       lastTime = currentTime;
 
+      // Track whether ANY spring is still moving
+      // If all springs are at rest, we can stop the RAF loop to save CPU
+      let anyActive = false;
+
       springs.forEach(({ spring, animation, duration, trackContext, entityId }) => {
+        // PHASE 1: Sync spring target with entity context (if tracking enabled)
+        // This reads reactive state and updates the spring's destination
         if (trackContext) {
           const context = entityContexts.get(entityId) || {};
           const targetValue = trackContext(context);
           spring.setTarget(targetValue);
         }
 
-        const progress = spring.tick(deltaTime);
-        const clamped = Math.max(0, Math.min(1, progress));
-        animation.currentTime = clamped * duration;
+        // PHASE 2: Only tick springs that are moving
+        // Springs at rest don't need physics calculations or DOM updates
+        if (!spring.isAtRest()) {
+          anyActive = true;
+
+          // Run physics simulation: calculates forces, velocity, and new position
+          const progress = spring.tick(deltaTime);
+          if (entityId === "bar-4") {
+            console.log(
+              "Spring progress:",
+              progress.toFixed(3),
+              "Target:",
+              spring.getTarget?.() ?? "unknown",
+            );
+          }
+
+          // Allow overshoot up to 150%, but prevent negative values
+          const clamped = Math.max(0, Math.min(1.5, progress));
+          animation.currentTime = clamped * duration;
+        }
+        // Springs at rest are skipped - no work needed
       });
 
-      if (springs.size > 0) {
+      // PHASE 3: Decide whether to continue RAF loop
+      // Continue only if springs exist AND at least one is moving
+      // Otherwise stop the loop to conserve CPU until next context update
+      if (anyActive && springs.size > 0) {
         rafId = requestAnimationFrame(tick);
       } else {
+        // All springs settled - stop RAF loop
         rafId = null;
         lastTime = 0;
       }
     };
 
+    // Kickstart the RAF loop - schedules the first frame
     rafId = requestAnimationFrame(tick);
   };
 

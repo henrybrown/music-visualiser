@@ -12,6 +12,7 @@ export interface Spring {
   getCurrent: () => number;
   getVelocity: () => number;
   snapToTarget: () => void;
+  getTarget?: () => number;
 }
 
 export const SPRING_PRESETS = {
@@ -22,9 +23,38 @@ export const SPRING_PRESETS = {
   visualizer: { stiffness: 170, damping: 18 },
 } as const;
 
+export const VISUALIZER_MODES = {
+  extreme: {
+    stiffness: 30,
+    damping: 3,
+    mass: 1,
+    label: "Extreme Bounce",
+  },
+  bouncy: {
+    stiffness: 40,
+    damping: 5,
+    mass: 1,
+    label: "Bouncy",
+  },
+  smooth: {
+    stiffness: 60,
+    damping: 12,
+    mass: 1.5,
+    label: "Smooth",
+  },
+  stiff: {
+    stiffness: 120,
+    damping: 20,
+    mass: 1,
+    label: "Stiff",
+  },
+} as const;
+
+export type VisualizerMode = keyof typeof VISUALIZER_MODES;
+
 export const createSpring = (
   initial: number,
-  config: SpringConfig = SPRING_PRESETS.visualizer
+  config: SpringConfig = SPRING_PRESETS.visualizer,
 ): Spring => {
   let current = initial;
   let target = initial;
@@ -40,6 +70,8 @@ export const createSpring = (
   const setTarget = (newTarget: number): void => {
     target = newTarget;
   };
+
+  const getTarget = (): number => target;
 
   const tick = (deltaTime: number): number => {
     if (isAtRest()) {
@@ -82,5 +114,6 @@ export const createSpring = (
     getCurrent,
     getVelocity,
     snapToTarget,
+    getTarget,
   };
 };

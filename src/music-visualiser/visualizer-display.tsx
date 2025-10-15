@@ -1,11 +1,8 @@
-import React, { useMemo, useCallback, useRef, useEffect } from "react";
+import React, { useMemo, useRef, useEffect } from "react";
 import { useAnimationRegistration } from "../../gameplay/animations/use-animation-registration";
-import type {
-  AnimationDefinition,
-  SpringAnimationDefinition,
-} from "../../gameplay/animations/animation-types";
+import type { SpringAnimationDefinition } from "../../gameplay/animations/animation-types";
 import styles from "./music-visualiser-demo.module.css";
-import { SPRING_PRESETS } from "../../gameplay/animations/";
+import { VISUALIZER_MODES, type VisualizerMode } from "../../gameplay/animations";
 
 const BASE_HEIGHT = 30;
 const CAP_HEIGHT = 6;
@@ -16,7 +13,8 @@ export const EqualizerBar: React.FC<{
   barId: string;
   frequencyRanges: readonly (readonly [number, number])[];
   barWidth: number;
-}> = ({ barId, frequencyRanges, barWidth }) => {
+  visualizerMode: VisualizerMode;
+}> = ({ barId, frequencyRanges, barWidth, visualizerMode }) => {
   const renderCount = useRef(0);
   const barIndex = parseInt(barId.split("-")[1]);
 
@@ -33,36 +31,36 @@ export const EqualizerBar: React.FC<{
     () => ({
       updateHeight: {
         keyframes: [{ transform: "scaleY(1)" }, { transform: "scaleY(10)" }],
-        springConfig: SPRING_PRESETS.visualizer,
+        springConfig: VISUALIZER_MODES[visualizerMode],
         options: { duration: 1000 },
         trackContext: (context) => (context.audioLevel as number) ?? 0,
       },
     }),
-    [],
+    [visualizerMode],
   );
 
   const capAnimations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
         keyframes: [{ transform: "translateY(0px)" }, { transform: "translateY(-270px)" }],
-        springConfig: SPRING_PRESETS.visualizer,
+        springConfig: VISUALIZER_MODES[visualizerMode],
         options: { duration: 1000 },
         trackContext: (context) => (context.audioLevel as number) ?? 0,
       },
     }),
-    [],
+    [visualizerMode],
   );
 
   const glowAnimations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
         keyframes: [{ transform: "scaleY(1)" }, { transform: "scaleY(10)" }],
-        springConfig: { ...SPRING_PRESETS.visualizer, damping: 12 },
+        springConfig: VISUALIZER_MODES[visualizerMode],
         options: { duration: 1000 },
         trackContext: (context) => (context.audioLevel as number) ?? 0,
       },
     }),
-    [],
+    [visualizerMode],
   );
 
   const { createAnimationRef } = useAnimationRegistration(barId, {
@@ -152,6 +150,7 @@ export interface VisualizerDisplayProps {
   barCount: number;
   barWidth: number;
   frequencyRanges: readonly (readonly [number, number])[];
+  visualizerMode: VisualizerMode;
   children?: React.ReactNode;
 }
 
@@ -159,6 +158,7 @@ export const VisualizerDisplay: React.FC<VisualizerDisplayProps> = ({
   barCount,
   barWidth,
   frequencyRanges,
+  visualizerMode,
   children,
 }) => {
   return (
@@ -169,6 +169,7 @@ export const VisualizerDisplay: React.FC<VisualizerDisplayProps> = ({
           barId={`bar-${i}`}
           frequencyRanges={frequencyRanges}
           barWidth={barWidth}
+          visualizerMode={visualizerMode}
         />
       ))}
       {children}
