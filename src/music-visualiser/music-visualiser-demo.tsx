@@ -62,6 +62,7 @@ const MusicVisualizerDemo: React.FC = () => {
   const engine = useAnimationEngine();
 
   const intervalRef = useRef<number | null>(null);
+  const glowIntervalRef = useRef<number | null>(null);
 
   const handlePlay = useCallback(() => {
     audioAnalyser.loadTrack("/sample_audio_for_animation_demo.wav");
@@ -117,7 +118,8 @@ const MusicVisualizerDemo: React.FC = () => {
 
     engine.startSpringLoop(); // Start spring RAF loop
 
-    const update = () => {
+    // Bar updates - slow refresh for smooth, bouncy motion
+    const updateBars = () => {
       const dataArray = audioAnalyser.getFrequencyData();
       if (!dataArray) return;
 
@@ -127,11 +129,27 @@ const MusicVisualizerDemo: React.FC = () => {
       }
     };
 
-    intervalRef.current = window.setInterval(update, audioRefreshRate);
+    // Glow updates - fast refresh for reactive, energetic motion
+    const updateGlows = () => {
+      const dataArray = audioAnalyser.getFrequencyData();
+      if (!dataArray) return;
+
+      for (let i = 0; i < BAR_COUNT; i++) {
+        const glowLevel = calculateAudioLevel(dataArray, i, activeFrequencyRanges, scaledFftSize);
+        engine.updateEntityContext(`bar-${i}`, { glowLevel });
+      }
+    };
+
+    // Two independent intervals at different rates
+    intervalRef.current = window.setInterval(updateBars, audioRefreshRate);
+    glowIntervalRef.current = window.setInterval(updateGlows, 16);
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+      }
+      if (glowIntervalRef.current) {
+        clearInterval(glowIntervalRef.current);
       }
       engine.stopSpringLoop();
     };
@@ -149,6 +167,11 @@ const MusicVisualizerDemo: React.FC = () => {
     const targetFrequencies = [20, 100, 500, 1000, 5000, 10000, 20000];
     const labels = [];
 
+    // Same calculation as EQ overlay
+    const totalBarsWidth = barWidth * BAR_COUNT + 3 * (BAR_COUNT - 1);
+    const containerWidth = 800; // Could get from ref if needed
+    const offset = (containerWidth - totalBarsWidth) / 2;
+
     for (const targetHz of targetFrequencies) {
       let closestIndex = 0;
       let minDiff = Infinity;
@@ -164,15 +187,19 @@ const MusicVisualizerDemo: React.FC = () => {
         }
       }
 
+      // Same frequency formatting as EQ
       const [minHz, maxHz] = activeFrequencyRanges[closestIndex];
       const avgHz = (minHz + maxHz) / 2;
       const label = avgHz >= 1000 ? `${(avgHz / 1000).toFixed(1)}kHz` : `${Math.round(avgHz)}Hz`;
 
-      labels.push({ index: closestIndex, label });
+      // Calculate position using SAME formula as EQ
+      const xPos = offset + barWidth / 2 + (barWidth + 3) * closestIndex;
+
+      labels.push({ index: closestIndex, label, xPos });
     }
 
     return labels;
-  }, [activeFrequencyRanges]);
+  }, [activeFrequencyRanges, barWidth, BAR_COUNT]);
 
   const handleResetAll = useCallback(() => {
     setSmoothing(SMOOTHING_TIME_CONSTANT);
@@ -206,8 +233,17 @@ const MusicVisualizerDemo: React.FC = () => {
         </VisualizerDisplay>
 
         <div className={styles.frequencyLabels}>
-          {frequencyLabels.map(({ index, label }) => (
-            <span key={index}>{label}</span>
+          {frequencyLabels.map(({ index, label, xPos }) => (
+            <span
+              key={index}
+              style={{
+                position: "absolute",
+                left: `${xPos}px`,
+                transform: "translateX(-50%)",
+              }}
+            >
+              {label}
+            </span>
           ))}
         </div>
       </div>

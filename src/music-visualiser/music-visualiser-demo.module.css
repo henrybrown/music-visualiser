@@ -29,8 +29,8 @@
 }
 
 .frequencyLabels {
-  display: flex;
-  justify-content: space-between;
+  position: relative;
+  height: 20px;
   margin-top: 0.75rem;
   padding: 0 1rem;
   font-size: 0.7rem;

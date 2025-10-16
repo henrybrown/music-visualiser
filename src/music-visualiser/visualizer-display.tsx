@@ -15,18 +15,6 @@ export const EqualizerBar: React.FC<{
   barWidth: number;
   visualizerMode: VisualizerMode;
 }> = ({ barId, frequencyRanges, barWidth, visualizerMode }) => {
-  const renderCount = useRef(0);
-  const barIndex = parseInt(barId.split("-")[1]);
-
-  useEffect(() => {
-    renderCount.current++;
-
-    // Log every 50th render for random bars to avoid spam
-    if (renderCount.current % 50 === 0 && Math.random() < 0.05) {
-      console.log(`[Bar ${barIndex}] Rendered ${renderCount.current} times`);
-    }
-  });
-
   const animations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
@@ -55,12 +43,16 @@ export const EqualizerBar: React.FC<{
     () => ({
       updateHeight: {
         keyframes: [{ transform: "scaleY(1)" }, { transform: "scaleY(10)" }],
-        springConfig: VISUALIZER_MODES[visualizerMode],
+        springConfig: {
+          stiffness: 180,
+          damping: 10,
+          mass: 0.6,
+        },
         options: { duration: 1000 },
-        trackContext: (context) => (context.audioLevel as number) ?? 0,
+        trackContext: (context) => (context.glowLevel as number) ?? 0,
       },
     }),
-    [visualizerMode],
+    [],
   );
 
   const { createAnimationRef } = useAnimationRegistration(barId, {
@@ -129,7 +121,7 @@ export const EqualizerBar: React.FC<{
         ref={createAnimationRef("cap", capAnimations)}
         style={{
           position: "absolute",
-          bottom: `${BASE_HEIGHT}px`,
+          bottom: `${BASE_HEIGHT - 2}px`,
           left: "0",
           width: `${barWidth}px`,
           height: `${CAP_HEIGHT}px`,

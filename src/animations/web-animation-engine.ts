@@ -209,7 +209,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
           }
 
           // Allow overshoot up to 150%, but prevent negative values
-          const clamped = Math.max(0, Math.min(1.5, progress));
+          const clamped = Math.max(0, progress);
           animation.currentTime = clamped * duration;
         }
         // Springs at rest are skipped - no work needed
