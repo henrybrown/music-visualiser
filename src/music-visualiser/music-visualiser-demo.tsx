@@ -3,18 +3,16 @@ import {
   AnimationEngineProvider,
   useAnimationEngine,
 } from "../../gameplay/animations/animation-engine-context";
-import { VisualizerDisplay } from "./visualizer-display";
+import { VisualizerDisplay, subdivideFrequencyRanges, calculateAudioLevel } from "./visualizer-display";
 import { ControlPanel, SMOOTHING_TIME_CONSTANT } from "./control-panel";
 import EQOverlay, { getDefaultEQNodes, type EQControlNode } from "./equalizer-components";
 import { useAudioAnalyser } from "./audio-analysis";
-import { subdivideFrequencyRanges, calculateAudioLevel } from "./visualizer-components";
 import { VISUALIZER_MODES, type VisualizerMode } from "../../gameplay/animations";
 import styles from "./music-visualiser-demo.module.css";
 
 const FFT_SIZE = 2048;
-const BASE_HEIGHT = 30;
 
-const MusicVisualizerDemo: React.FC = () => {
+const MusicVisualizerDemoInner: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [smoothing, setSmoothing] = useState(SMOOTHING_TIME_CONSTANT);
   const [dbRangeMin, setDbRangeMin] = useState(170);
@@ -314,11 +312,10 @@ const MusicVisualizerDemo: React.FC = () => {
   );
 };
 
-export const MusicVisualizerDemoWrapper: React.FC = () => {
+export const MusicVisualizerDemo: React.FC = () => {
   return (
     <AnimationEngineProvider engineId="music-visualizer-demo">
-      <MusicVisualizerDemo />
+      <MusicVisualizerDemoInner />
     </AnimationEngineProvider>
   );
 };
-export default MusicVisualizerDemoWrapper;

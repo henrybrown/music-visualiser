@@ -12,6 +12,7 @@ interface SpringData {
   duration: number;
   trackContext?: (context: Record<string, unknown>) => number;
   entityId: string;
+  clampRange?: { min: number; max: number };
 }
 
 export interface WebAnimationEngine {
@@ -30,7 +31,11 @@ export interface WebAnimationEngine {
   startSpringLoop: () => void;
   stopSpringLoop: () => void;
   cancelAll: () => void;
-  updateEntityContext: (entityId: string, context: EntityContext) => void;
+  updateEntityContext: (
+    entityId: string,
+    context: EntityContext,
+    options?: { autoStartLoop?: boolean }
+  ) => void;
   getEntityContext: (entityId: string) => EntityContext | undefined;
   getEngineInfo: () => {
     registry: Map<
@@ -78,7 +83,8 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const animDef = typeof animDefOrFn === "function" ? animDefOrFn(context) : animDefOrFn;
 
       if (isSpringAnimation(animDef)) {
-        const spring = createSpring(0, animDef.springConfig || SPRING_PRESETS.visualizer);
+        const initialValue = animDef.initialValue ?? 0;
+        const spring = createSpring(initialValue, animDef.springConfig || SPRING_PRESETS.visualizer);
 
         const animation = element.animate(animDef.keyframes, {
           ...animDef.options,
@@ -94,6 +100,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
           duration: animation.effect!.getTiming().duration as number,
           trackContext: animDef.trackContext,
           entityId,
+          clampRange: animDef.clampRange,
         });
       } else {
         const animation = element.animate(animDef.keyframes, {
@@ -143,13 +150,26 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
     }
   };
 
-  const updateEntityContext = (entityId: string, context: EntityContext) => {
+  const updateEntityContext = (
+    entityId: string,
+    context: EntityContext,
+    options?: { autoStartLoop?: boolean }
+  ) => {
     const existing = entityContexts.get(entityId) || {};
-    entityContexts.set(entityId, { ...existing, ...context });
+    const newContext = { ...existing, ...context };
+    entityContexts.set(entityId, newContext);
 
-    // Auto-restart RAF loop if it stopped and we have springs
-    // This ensures context changes immediately trigger animation updates
-    if (!rafId && springs.size > 0) {
+    // Update spring targets immediately when context changes
+    springs.forEach((springData) => {
+      if (springData.entityId === entityId && springData.trackContext) {
+        const targetValue = springData.trackContext(newContext);
+        springData.spring.setTarget(targetValue);
+      }
+    });
+
+    // Explicit control over loop restart (defaults to true for backward compatibility)
+    const shouldAutoStart = options?.autoStartLoop ?? true;
+    if (shouldAutoStart && !rafId && springs.size > 0) {
       startSpringLoop();
     }
   };
@@ -183,33 +203,22 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       // If all springs are at rest, we can stop the RAF loop to save CPU
       let anyActive = false;
 
-      springs.forEach(({ spring, animation, duration, trackContext, entityId }) => {
-        // PHASE 1: Sync spring target with entity context (if tracking enabled)
-        // This reads reactive state and updates the spring's destination
-        if (trackContext) {
-          const context = entityContexts.get(entityId) || {};
-          const targetValue = trackContext(context);
-          spring.setTarget(targetValue);
-        }
+      springs.forEach((springData) => {
+        const { spring, animation, duration, clampRange } = springData;
 
-        // PHASE 2: Only tick springs that are moving
+        // Only tick springs that are moving
         // Springs at rest don't need physics calculations or DOM updates
         if (!spring.isAtRest()) {
           anyActive = true;
 
           // Run physics simulation: calculates forces, velocity, and new position
           const progress = spring.tick(deltaTime);
-          if (entityId === "bar-4") {
-            console.log(
-              "Spring progress:",
-              progress.toFixed(3),
-              "Target:",
-              spring.getTarget?.() ?? "unknown",
-            );
-          }
 
-          // Allow overshoot up to 150%, but prevent negative values
-          const clamped = Math.max(0, progress);
+          // Apply clamping if configured, otherwise let spring overshoot naturally
+          const clamped = clampRange
+            ? Math.max(clampRange.min, Math.min(clampRange.max, progress))
+            : progress;
+
           animation.currentTime = clamped * duration;
         }
         // Springs at rest are skipped - no work needed

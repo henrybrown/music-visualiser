@@ -11,8 +11,8 @@ export {
   isSpringAnimation,
   isWaapiAnimation,
 } from './animation-types';
-export { createSpring, SPRING_PRESETS, VISUALIZER_MODES } from './spring-animation';
-export type { Spring, SpringConfig, VisualizerMode } from './spring-animation';
+export { createSpring, SPRING_PRESETS, SPRING_CONFIGS, VISUALIZER_MODES } from './spring-animation';
+export type { Spring, SpringConfig, SpringConfigKey, VisualizerMode } from './spring-animation';
 export { useAnimationRegistration } from './use-animation-registration';
 export { AnimationEngineProvider, useAnimationEngine } from './animation-engine-context';
 export { usePendingAnimations } from './use-pending-animations';

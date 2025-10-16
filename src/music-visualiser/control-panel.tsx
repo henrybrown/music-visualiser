@@ -1,7 +1,15 @@
 import React from "react";
+import { SPRING_CONFIGS } from "../../gameplay/animations";
 import styles from "./music-visualiser-demo.module.css";
 
 export const SMOOTHING_TIME_CONSTANT = 0.8;
+
+const SPRING_CONFIG_LABELS: Record<keyof typeof SPRING_CONFIGS, string> = {
+  extreme: "Extreme - HUGE Bounce",
+  bouncy: "Bouncy - Visible Overshoot",
+  smooth: "Smooth - Gentle Movement",
+  stiff: "Stiff - Quick & Controlled",
+};
 
 export interface ControlPanelProps {
   smoothing: number;
@@ -68,10 +76,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           className={styles.controlSelect}
           disabled={isPlaying}
         >
-          <option value="extreme">Extreme - HUGE Bounce</option>
-          <option value="bouncy">Bouncy - Visible Overshoot</option>
-          <option value="smooth">Smooth - Gentle Movement</option>
-          <option value="stiff">Stiff - Quick & Controlled</option>
+          {(Object.keys(SPRING_CONFIGS) as Array<keyof typeof SPRING_CONFIGS>).map((key) => (
+            <option key={key} value={key}>
+              {SPRING_CONFIG_LABELS[key]}
+            </option>
+          ))}
         </select>
       </div>
 

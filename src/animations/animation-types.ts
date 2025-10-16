@@ -10,6 +10,8 @@ export interface SpringAnimationDefinition {
   springConfig?: SpringConfig;
   options?: KeyframeAnimationOptions;
   trackContext?: (context: Record<string, unknown>) => number;
+  clampRange?: { min: number; max: number };
+  initialValue?: number;
 }
 
 export type AnimationDefinitionStatic = WaapiAnimationDefinition | SpringAnimationDefinition;

@@ -23,34 +23,18 @@ export const SPRING_PRESETS = {
   visualizer: { stiffness: 170, damping: 18 },
 } as const;
 
-export const VISUALIZER_MODES = {
-  extreme: {
-    stiffness: 30,
-    damping: 3,
-    mass: 1,
-    label: "Extreme Bounce",
-  },
-  bouncy: {
-    stiffness: 40,
-    damping: 5,
-    mass: 1,
-    label: "Bouncy",
-  },
-  smooth: {
-    stiffness: 60,
-    damping: 12,
-    mass: 1.5,
-    label: "Smooth",
-  },
-  stiff: {
-    stiffness: 120,
-    damping: 20,
-    mass: 1,
-    label: "Stiff",
-  },
+export const SPRING_CONFIGS = {
+  extreme: { stiffness: 30, damping: 3, mass: 1 },
+  bouncy: { stiffness: 40, damping: 5, mass: 1 },
+  smooth: { stiffness: 60, damping: 12, mass: 1.5 },
+  stiff: { stiffness: 120, damping: 20, mass: 1 },
 } as const;
 
-export type VisualizerMode = keyof typeof VISUALIZER_MODES;
+export type SpringConfigKey = keyof typeof SPRING_CONFIGS;
+
+// Backward compatibility alias
+export const VISUALIZER_MODES = SPRING_CONFIGS;
+export type VisualizerMode = SpringConfigKey;
 
 export const createSpring = (
   initial: number,
