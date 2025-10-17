@@ -8,9 +8,8 @@ import { type VisualiserMode } from "../../gameplay/animations";
 const BASE_HEIGHT = 30;
 const CAP_HEIGHT = 6;
 
-// Visualiser-specific spring preset for smooth audio-reactive animations
-
-const VISUALISER_SPRING_PRESET = { stiffness: 170, damping: 18 };
+// Visualiser-specific spring preset - "extreme" bounce for dramatic audio-reactive animations
+const VISUALISER_SPRING_PRESET = { stiffness: 30, damping: 3, mass: 1 };
 
 export const FREQUENCY_RANGES = [
   [20, 40],
