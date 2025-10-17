@@ -84,7 +84,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
       if (isSpringAnimation(animDef)) {
         const initialValue = animDef.initialValue ?? 0;
-        const spring = createSpring(initialValue, animDef.springConfig || SPRING_PRESETS.visualizer);
+        const spring = createSpring(initialValue, animDef.springConfig || SPRING_PRESETS.gentle);
 
         const animation = element.animate(animDef.keyframes, {
           ...animDef.options,

@@ -1,0 +1,79 @@
+/* Equalizer Components Styles */
+
+.eqOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10002;
+}
+
+.eqOverlayDragging {
+  pointer-events: auto;
+}
+
+.eqOverlayIdle {
+  pointer-events: none;
+}
+
+.zeroLine {
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.curvePath {
+  fill: none;
+  stroke: rgba(59, 130, 246, 0.6);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.interpolatedDot {
+  fill: rgba(59, 130, 246, 0.4);
+  pointer-events: none;
+}
+
+.guideLine {
+  stroke-dasharray: 2 2;
+  pointer-events: none;
+}
+
+.guideLineIdle {
+  stroke: rgba(59, 130, 246, 0.2);
+  stroke-width: 1;
+}
+
+.guideLineDragging {
+  stroke: rgba(59, 130, 246, 0.4);
+  stroke-width: 2;
+}
+
+.controlNode {
+  fill: #3b82f6;
+  stroke: #ffffff;
+  stroke-width: 2;
+  cursor: grab;
+  pointer-events: auto;
+  transition: filter 0.15s ease;
+}
+
+.controlNodeIdle {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.controlNodeDragging {
+  filter: drop-shadow(0 6px 16px rgba(59, 130, 246, 1));
+  transition: none;
+}
+
+.nodeLabel {
+  fill: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: Monaco, Courier New, monospace;
+  text-anchor: middle;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+}

@@ -1,0 +1,43 @@
+/* Visualizer Display Styles */
+
+.barWrapper {
+  position: relative;
+  will-change: transform;
+  transform: translateZ(0);
+  isolation: isolate;
+}
+
+.glow {
+  position: absolute;
+  bottom: 0;
+  height: 30px;
+  transform-origin: bottom;
+  filter: blur(10px);
+  will-change: transform;
+  transform: translateZ(0);
+  isolation: isolate;
+}
+
+.bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 30px;
+  transform-origin: bottom;
+  border-radius: 0;
+  will-change: transform;
+  transform: translateZ(0);
+  isolation: isolate;
+}
+
+.cap {
+  position: absolute;
+  bottom: 28px; /* BASE_HEIGHT - 2 */
+  left: 0;
+  height: 6px;
+  transform-origin: bottom;
+  border-radius: 4px 4px 0 0;
+  will-change: transform;
+  transform: translateZ(0);
+  isolation: isolate;
+}

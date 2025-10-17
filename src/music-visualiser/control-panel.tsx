@@ -1,6 +1,6 @@
 import React from "react";
 import { SPRING_CONFIGS } from "../../gameplay/animations";
-import styles from "./music-visualiser-demo.module.css";
+import styles from "./control-panel.module.css";
 
 export const SMOOTHING_TIME_CONSTANT = 0.8;
 
@@ -20,8 +20,6 @@ export interface ControlPanelProps {
   onDbRangeMaxChange: (value: number) => void;
   barDensity: 1 | 2 | 4;
   onBarDensityChange: (value: 1 | 2 | 4) => void;
-  visualizerMode: 'extreme' | 'bouncy' | 'smooth' | 'stiff';
-  onVisualizerModeChange: (value: 'extreme' | 'bouncy' | 'smooth' | 'stiff') => void;
   audioRefreshRate: number;
   onAudioRefreshRateChange: (value: number) => void;
   onResetAll: () => void;
@@ -37,8 +35,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onDbRangeMaxChange,
   barDensity,
   onBarDensityChange,
-  visualizerMode,
-  onVisualizerModeChange,
   audioRefreshRate,
   onAudioRefreshRateChange,
   onResetAll,
@@ -64,26 +60,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <option value={4}>Quadruple (124 bars)</option>
         </select>
       </div>
-
-      <div className={styles.controlGroup}>
-        <label className={styles.controlLabel}>
-          Animation Mode
-          <span className={styles.controlHint}>Physics behavior</span>
-        </label>
-        <select
-          value={visualizerMode}
-          onChange={(e) => onVisualizerModeChange(e.target.value as 'extreme' | 'bouncy' | 'smooth' | 'stiff')}
-          className={styles.controlSelect}
-          disabled={isPlaying}
-        >
-          {(Object.keys(SPRING_CONFIGS) as Array<keyof typeof SPRING_CONFIGS>).map((key) => (
-            <option key={key} value={key}>
-              {SPRING_CONFIG_LABELS[key]}
-            </option>
-          ))}
-        </select>
-      </div>
-
       <div className={styles.controlGroup}>
         <label className={styles.controlLabel}>
           Audio Refresh Rate

@@ -1,11 +1,16 @@
 import React, { useMemo, useRef, useEffect } from "react";
 import { useAnimationRegistration } from "../../gameplay/animations/use-animation-registration";
 import type { SpringAnimationDefinition } from "../../gameplay/animations/animation-types";
-import styles from "./music-visualiser-demo.module.css";
-import { VISUALIZER_MODES, type VisualizerMode } from "../../gameplay/animations";
+import demoStyles from "./music-visualiser-demo.module.css";
+import styles from "./visualizer-display.module.css";
+import { type VisualiserMode } from "../../gameplay/animations";
 
 const BASE_HEIGHT = 30;
 const CAP_HEIGHT = 6;
+
+// Visualiser-specific spring preset for smooth audio-reactive animations
+
+const VISUALISER_SPRING_PRESET = { stiffness: 170, damping: 18 };
 
 export const FREQUENCY_RANGES = [
   [20, 40],
@@ -90,30 +95,29 @@ export const EqualizerBar: React.FC<{
   barId: string;
   frequencyRanges: readonly (readonly [number, number])[];
   barWidth: number;
-  visualizerMode: VisualizerMode;
-}> = ({ barId, frequencyRanges, barWidth, visualizerMode }) => {
+}> = ({ barId, frequencyRanges, barWidth }) => {
   const animations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
         keyframes: [{ transform: "scaleY(1)" }, { transform: "scaleY(10)" }],
-        springConfig: VISUALIZER_MODES[visualizerMode],
+        springConfig: VISUALISER_SPRING_PRESET,
         options: { duration: 1000 },
         trackContext: (context) => (context.audioLevel as number) ?? 0,
       },
     }),
-    [visualizerMode],
+    [],
   );
 
   const capAnimations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
         keyframes: [{ transform: "translateY(0px)" }, { transform: "translateY(-270px)" }],
-        springConfig: VISUALIZER_MODES[visualizerMode],
+        springConfig: VISUALISER_SPRING_PRESET,
         options: { duration: 1000 },
         trackContext: (context) => (context.audioLevel as number) ?? 0,
       },
     }),
-    [visualizerMode],
+    [],
   );
 
   const glowAnimations: Record<string, SpringAnimationDefinition> = useMemo(
@@ -148,67 +152,40 @@ export const EqualizerBar: React.FC<{
 
   return (
     <div
-      className={styles.barContainer}
+      className={`${demoStyles.barContainer} ${styles.barWrapper}`}
       data-frequency={freqLabel}
       style={{
-        position: "relative",
         width: `${barWidth}px`,
         height: `${BASE_HEIGHT + CAP_HEIGHT}px`,
-        willChange: "transform",
-        transform: "translateZ(0)", // Force GPU layer explicitly
-        isolation: "isolate", // Prevent layer sharing issues
       }}
     >
       <div
         ref={createAnimationRef("glow", glowAnimations)}
+        className={styles.glow}
         style={{
-          position: "absolute",
-          bottom: "0",
           left: `-${glowSpread}px`,
           right: `-${glowSpread}px`,
-          height: `${BASE_HEIGHT}px`,
-          transformOrigin: "bottom",
           background: `radial-gradient(ellipse, hsla(${hue}, 70%, 60%, 0.6), transparent)`,
-          filter: "blur(10px)",
-          willChange: "transform",
-          transform: "translateZ(0)", // Force GPU layer explicitly
-          isolation: "isolate", // Prevent layer sharing issues
         }}
       />
 
       <div
         ref={createAnimationRef("bar", animations)}
+        className={styles.bar}
         style={{
-          position: "absolute",
-          bottom: "0",
-          left: "0",
           width: `${barWidth}px`,
-          height: `${BASE_HEIGHT}px`,
-          transformOrigin: "bottom",
           background: `linear-gradient(180deg, hsl(${hue}, 70%, 70%) 0%, hsl(${hue}, 70%, 50%) 100%)`,
-          borderRadius: "0",
           boxShadow: `0 0 20px hsla(${hue}, 70%, 60%, 0.5)`,
-          willChange: "transform",
-          transform: "translateZ(0)", // Force GPU layer explicitly
-          isolation: "isolate", // Prevent layer sharing issues
         }}
       />
 
       <div
         ref={createAnimationRef("cap", capAnimations)}
+        className={styles.cap}
         style={{
-          position: "absolute",
-          bottom: `${BASE_HEIGHT - 2}px`,
-          left: "0",
           width: `${barWidth}px`,
-          height: `${CAP_HEIGHT}px`,
-          transformOrigin: "bottom",
           background: `linear-gradient(180deg, hsl(${hue}, 70%, 75%) 0%, hsl(${hue}, 70%, 70%) 100%)`,
-          borderRadius: "4px 4px 0 0",
           boxShadow: `0 0 20px hsla(${hue}, 70%, 60%, 0.5)`,
-          willChange: "transform",
-          transform: "translateZ(0)", // Force GPU layer explicitly
-          isolation: "isolate", // Prevent layer sharing issues
         }}
       />
     </div>
@@ -219,7 +196,6 @@ export interface VisualizerDisplayProps {
   barCount: number;
   barWidth: number;
   frequencyRanges: readonly (readonly [number, number])[];
-  visualizerMode: VisualizerMode;
   children?: React.ReactNode;
 }
 
@@ -227,18 +203,16 @@ export const VisualizerDisplay: React.FC<VisualizerDisplayProps> = ({
   barCount,
   barWidth,
   frequencyRanges,
-  visualizerMode,
   children,
 }) => {
   return (
-    <div className={styles.visualizer}>
+    <div className={demoStyles.visualizer}>
       {Array.from({ length: barCount }, (_, i) => (
         <EqualizerBar
           key={`bar-${i}`}
           barId={`bar-${i}`}
           frequencyRanges={frequencyRanges}
           barWidth={barWidth}
-          visualizerMode={visualizerMode}
         />
       ))}
       {children}

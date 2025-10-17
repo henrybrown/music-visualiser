@@ -20,7 +20,6 @@ export const SPRING_PRESETS = {
   wobbly: { stiffness: 180, damping: 12 },
   stiff: { stiffness: 210, damping: 20 },
   slow: { stiffness: 280, damping: 60 },
-  visualizer: { stiffness: 170, damping: 18 },
 } as const;
 
 export const SPRING_CONFIGS = {
@@ -33,12 +32,12 @@ export const SPRING_CONFIGS = {
 export type SpringConfigKey = keyof typeof SPRING_CONFIGS;
 
 // Backward compatibility alias
-export const VISUALIZER_MODES = SPRING_CONFIGS;
-export type VisualizerMode = SpringConfigKey;
+export const VISUALISER_MODES = SPRING_CONFIGS;
+export type VisualiserMode = SpringConfigKey;
 
 export const createSpring = (
   initial: number,
-  config: SpringConfig = SPRING_PRESETS.visualizer,
+  config: SpringConfig = SPRING_PRESETS.gentle,
 ): Spring => {
   let current = initial;
   let target = initial;

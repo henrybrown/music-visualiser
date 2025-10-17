@@ -3,11 +3,15 @@ import {
   AnimationEngineProvider,
   useAnimationEngine,
 } from "../../gameplay/animations/animation-engine-context";
-import { VisualizerDisplay, subdivideFrequencyRanges, calculateAudioLevel } from "./visualizer-display";
+import {
+  VisualizerDisplay,
+  subdivideFrequencyRanges,
+  calculateAudioLevel,
+} from "./visualizer-display";
 import { ControlPanel, SMOOTHING_TIME_CONSTANT } from "./control-panel";
 import EQOverlay, { getDefaultEQNodes, type EQControlNode } from "./equalizer-components";
 import { useAudioAnalyser } from "./audio-analysis";
-import { VISUALIZER_MODES, type VisualizerMode } from "../../gameplay/animations";
+import { VISUALISER_MODES, type VisualiserMode } from "../../gameplay/animations";
 import styles from "./music-visualiser-demo.module.css";
 
 const FFT_SIZE = 2048;
@@ -17,7 +21,6 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const [smoothing, setSmoothing] = useState(SMOOTHING_TIME_CONSTANT);
   const [dbRangeMin, setDbRangeMin] = useState(170);
   const [dbRangeMax, setDbRangeMax] = useState(245);
-  const [visualizerMode, setVisualizerMode] = useState<VisualizerMode>("extreme");
   const [barDensity, setBarDensity] = useState<1 | 2 | 4>(1);
   const [showControls, setShowControls] = useState(false);
   const [showEQ, setShowEQ] = useState(true);
@@ -204,7 +207,6 @@ const MusicVisualizerDemoInner: React.FC = () => {
     setDbRangeMin(170);
     setDbRangeMax(245);
     setBarDensity(1);
-    setVisualizerMode("extreme");
     setAudioRefreshRate(2000);
     setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
   }, [BAR_COUNT]);
@@ -216,7 +218,6 @@ const MusicVisualizerDemoInner: React.FC = () => {
           barCount={BAR_COUNT}
           barWidth={barWidth}
           frequencyRanges={activeFrequencyRanges}
-          visualizerMode={visualizerMode}
         >
           {showEQ && (
             <EQOverlay
@@ -300,8 +301,6 @@ const MusicVisualizerDemoInner: React.FC = () => {
           onDbRangeMaxChange={setDbRangeMax}
           barDensity={barDensity}
           onBarDensityChange={setBarDensity}
-          visualizerMode={visualizerMode}
-          onVisualizerModeChange={setVisualizerMode}
           audioRefreshRate={audioRefreshRate}
           onAudioRefreshRateChange={setAudioRefreshRate}
           onResetAll={handleResetAll}

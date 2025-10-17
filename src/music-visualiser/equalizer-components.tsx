@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
+import styles from "./equalizer-components.module.css";
 
 const MIN_GAIN = -12;
 const MAX_GAIN = 12;
@@ -203,15 +204,7 @@ const EQOverlay: React.FC<EQOverlayProps> = ({
   return (
     <svg
       ref={svgRef}
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        pointerEvents: draggingIndex !== null ? "auto" : "none",
-        zIndex: 10002,
-      }}
+      className={`${styles.eqOverlay} ${draggingIndex !== null ? styles.eqOverlayDragging : styles.eqOverlayIdle}`}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
@@ -221,18 +214,13 @@ const EQOverlay: React.FC<EQOverlayProps> = ({
         y1={zeroLineY}
         x2="100%"
         y2={zeroLineY}
-        stroke="rgba(255, 255, 255, 0.2)"
-        strokeWidth="1"
-        strokeDasharray="4 4"
+        className={styles.zeroLine}
       />
 
       {generateCurvePath && (
         <path
           d={generateCurvePath}
-          fill="none"
-          stroke="rgba(59, 130, 246, 0.6)"
-          strokeWidth="2"
-          style={{ pointerEvents: "none" }}
+          className={styles.curvePath}
         />
       )}
 
@@ -249,8 +237,7 @@ const EQOverlay: React.FC<EQOverlayProps> = ({
             cx={x}
             cy={y}
             r={2}
-            fill="rgba(59, 130, 246, 0.4)"
-            style={{ pointerEvents: "none" }}
+            className={styles.interpolatedDot}
           />
         );
       })}
@@ -267,27 +254,14 @@ const EQOverlay: React.FC<EQOverlayProps> = ({
               y1="0"
               x2={x}
               y2="100%"
-              stroke={isDragging ? "rgba(59, 130, 246, 0.4)" : "rgba(59, 130, 246, 0.2)"}
-              strokeWidth={isDragging ? "2" : "1"}
-              strokeDasharray="2 2"
-              style={{ pointerEvents: "none" }}
+              className={`${styles.guideLine} ${isDragging ? styles.guideLineDragging : styles.guideLineIdle}`}
             />
 
             <circle
               cx={x}
               cy={y}
               r={isDragging ? 10 : 8}
-              fill="#3b82f6"
-              stroke="#ffffff"
-              strokeWidth="2"
-              style={{
-                cursor: "grab",
-                pointerEvents: "auto",
-                filter: isDragging
-                  ? "drop-shadow(0 6px 16px rgba(59, 130, 246, 1))"
-                  : "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))",
-                transition: isDragging ? "none" : "filter 0.15s ease",
-              }}
+              className={`${styles.controlNode} ${isDragging ? styles.controlNodeDragging : styles.controlNodeIdle}`}
               onMouseDown={() => handleMouseDown(index)}
             />
 
@@ -295,15 +269,7 @@ const EQOverlay: React.FC<EQOverlayProps> = ({
               <text
                 x={x}
                 y={y - 20}
-                fill="#ffffff"
-                fontSize="12"
-                fontWeight="600"
-                fontFamily="Monaco, Courier New, monospace"
-                textAnchor="middle"
-                style={{
-                  pointerEvents: "none",
-                  filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8))",
-                }}
+                className={styles.nodeLabel}
               >
                 {formatFrequency(node.barIndex)} | {formatGain(node.gain)}
               </text>
