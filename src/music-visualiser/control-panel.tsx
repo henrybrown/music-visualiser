@@ -11,6 +11,10 @@ const SPRING_CONFIG_LABELS: Record<keyof typeof SPRING_CONFIGS, string> = {
   stiff: "Stiff - Quick & Controlled",
   cascadedOverdamped: "Cascaded Overdamped - Smooth Input, Bouncy Display",
   cascadedUnderdamped: "Cascaded Underdamped - Overshoot Both Stages",
+  cascadedExtreme: "🔥 Cascaded EXTREME - Super Bouncy (ζ ≈ 0.3)",
+  cascadedInsane: "💀 Cascaded INSANE - Extra Mass (2x inertia)",
+  cascadedHeavy: "⚡ Cascaded HEAVY - Triple Mass (3x inertia)",
+  cascadedSeparated: "🌪️ Cascaded SEPARATED - Fast Input, Slow Display",
 };
 
 export interface ControlPanelProps {
@@ -53,13 +57,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       <div className={styles.controlGroup}>
         <label className={styles.controlLabel}>
           Spring Physics Mode
-          <span className={styles.controlHint}>Animation bounce behavior</span>
+          <span className={styles.controlHint}>Animation bounce behavior (live update)</span>
         </label>
         <select
           value={springMode}
           onChange={(e) => onSpringModeChange(e.target.value as keyof typeof SPRING_CONFIGS)}
           className={styles.controlSelect}
-          disabled={isPlaying}
         >
           {(Object.keys(SPRING_CONFIGS) as Array<keyof typeof SPRING_CONFIGS>).map((key) => (
             <option key={key} value={key}>
@@ -72,13 +75,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       <div className={styles.controlGroup}>
         <label className={styles.controlLabel}>
           Bar Density
-          <span className={styles.controlHint}>Visual resolution</span>
+          <span className={styles.controlHint}>Visual resolution (live update)</span>
         </label>
         <select
           value={barDensity}
           onChange={(e) => onBarDensityChange(Number(e.target.value) as 1 | 2 | 4)}
           className={styles.controlSelect}
-          disabled={isPlaying}
         >
           <option value={1}>Normal (31 bars)</option>
           <option value={2}>Double (62 bars)</option>
@@ -100,7 +102,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           value={audioRefreshRate}
           onChange={(e) => onAudioRefreshRateChange(Number(e.target.value))}
           className={styles.controlSlider}
-          disabled={isPlaying}
         />
       </div>
 

@@ -47,6 +47,36 @@ export const SPRING_CONFIGS = {
     targetStiffness: 60,     // First stage: moderate response
     targetDamping: 12,       // First stage: underdamped (ζ < 1, can overshoot)
   },
+
+  // EXTREME cascaded systems - maximum physics chaos
+  cascadedExtreme: {
+    stiffness: 20,           // Second stage: super bouncy (low stiffness = slow oscillation)
+    damping: 2,              // Second stage: barely damped (lots of overshoot)
+    mass: 1,
+    targetStiffness: 40,     // First stage: moderate speed
+    targetDamping: 4,        // First stage: very underdamped (ζ ≈ 0.3)
+  },
+  cascadedInsane: {
+    stiffness: 25,           // Slow, bouncy second stage
+    damping: 2,              // Very low damping
+    mass: 2,                 // Extra mass for more inertia = bigger overshoot
+    targetStiffness: 60,     // Moderate first stage
+    targetDamping: 6,        // Underdamped (ζ ≈ 0.4)
+  },
+  cascadedHeavy: {
+    stiffness: 30,           // Bouncy second stage
+    damping: 3,
+    mass: 3,                 // Triple the mass! More inertia = massive overshoot
+    targetStiffness: 60,
+    targetDamping: 8,
+  },
+  cascadedSeparated: {
+    stiffness: 20,           // Second stage: slow, lazy
+    damping: 2,
+    mass: 1,
+    targetStiffness: 200,    // First stage: super responsive
+    targetDamping: 20,       // But still underdamped (ζ ≈ 0.7)
+  },
 } as const;
 
 export type SpringConfigKey = keyof typeof SPRING_CONFIGS;
