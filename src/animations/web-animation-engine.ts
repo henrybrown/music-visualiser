@@ -165,17 +165,25 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
     const newContext = { ...existing, ...context };
     entityContexts.set(entityId, newContext);
 
+    let anySpringTargetsChanged = false;
+
     // Update spring targets immediately when context changes
     springs.forEach((springData) => {
       if (springData.entityId === entityId && springData.trackContext) {
         const targetValue = springData.trackContext(newContext);
-        springData.spring.setTarget(targetValue);
+        const currentTarget = springData.spring.getTarget?.() ?? springData.spring.getCurrent();
+
+        // Only set target if it actually changed
+        if (Math.abs(targetValue - currentTarget) > 0.001) {
+          springData.spring.setTarget(targetValue);
+          anySpringTargetsChanged = true;
+        }
       }
     });
 
-    //Explicit control over loop restart
-    const shouldAutoStart = options?.autoStartLoop ?? false;
-    if (shouldAutoStart && !rafId && springs.size > 0) {
+    // Auto-restart loop if springs have new targets and loop isn't running
+    if (anySpringTargetsChanged && !rafId && springs.size > 0) {
+      console.log(`🔁 Auto-restarting spring loop for entity: ${entityId}`);
       startSpringLoop();
     }
   };

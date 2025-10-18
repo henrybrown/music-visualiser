@@ -1,13 +1,9 @@
 import React, { useMemo } from "react";
 import { useAnimationRegistration } from "../../gameplay/animations/use-animation-registration";
-import { useAnimationEngine } from "../../gameplay/animations/animation-engine-context";
 import type { SpringAnimationDefinition } from "../../gameplay/animations/animation-types";
 import demoStyles from "./music-visualiser-demo.module.css";
 import styles from "./visualizer-display.module.css";
 import { SPRING_CONFIGS, type SpringConfigKey } from "../../gameplay/animations";
-
-const BASE_HEIGHT = 30;
-const CAP_HEIGHT = 6;
 
 export const FREQUENCY_RANGES = [
   [20, 40],

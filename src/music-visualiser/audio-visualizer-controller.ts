@@ -72,6 +72,10 @@ export function createAudioVisualizerController(
   let lastAudioUpdate = 0;
   let lastGlowUpdate = 0;
 
+  // Logging variables
+  let updateCount = 0;
+  let playCount = 0;
+
   function audioUpdateLoop(timestamp: number) {
     if (!playing) return;
 
@@ -82,21 +86,28 @@ export function createAudioVisualizerController(
     }
 
     if (timestamp - lastAudioUpdate >= config.audioRefreshRate) {
+      let updatesThisTick = 0;
+
       for (let i = 0; i < barCount; i++) {
-        const rawLevel = calculateAudioLevel(
-          dataArray,
-          i,
-          config.frequencyRanges,
-          config.fftSize,
-        );
+        const rawLevel = calculateAudioLevel(dataArray, i, config.frequencyRanges, config.fftSize);
         const mappedLevel = BASELINE + rawLevel * (1.0 - BASELINE);
         const lastLevel = lastBarLevels[i];
 
         if (Math.abs(mappedLevel - lastLevel) > config.changeThreshold) {
           engine.updateEntityContext(`bar-${i}`, { audioLevel: mappedLevel });
           lastBarLevels[i] = mappedLevel;
+          updatesThisTick++;
         }
       }
+
+      updateCount += updatesThisTick;
+
+      if (updateCount % 10 === 0) {
+        console.log(
+          `[Play ${playCount}] Audio updates: ${updateCount} (${updatesThisTick} this tick)`,
+        );
+      }
+
       lastAudioUpdate = timestamp;
     }
 
@@ -114,12 +125,7 @@ export function createAudioVisualizerController(
 
     if (timestamp - lastGlowUpdate >= 16) {
       for (let i = 0; i < barCount; i++) {
-        const glowLevel = calculateAudioLevel(
-          dataArray,
-          i,
-          config.frequencyRanges,
-          config.fftSize,
-        );
+        const glowLevel = calculateAudioLevel(dataArray, i, config.frequencyRanges, config.fftSize);
         engine.updateEntityContext(`bar-${i}`, { glowLevel });
       }
       lastGlowUpdate = timestamp;
@@ -132,6 +138,10 @@ export function createAudioVisualizerController(
     play: async (trackUrl: string) => {
       if (playing) return;
 
+      playCount++;
+      updateCount = 0;
+      console.log(`\n🎬 [Play ${playCount}] Starting...`);
+
       lastBarLevels.fill(0);
       lastAudioUpdate = 0;
       lastGlowUpdate = 0;
@@ -143,16 +153,20 @@ export function createAudioVisualizerController(
         });
       }
 
-      engine.startSpringLoop();
+      await audioAnalyser.loadTrack(trackUrl);
+      console.log(`✅ [Play ${playCount}] Track loaded`);
+
       rafId = requestAnimationFrame(audioUpdateLoop);
       glowRafId = requestAnimationFrame(glowUpdateLoop);
 
-      await audioAnalyser.loadTrack(trackUrl);
       playing = true;
+      console.log(`✅ [Play ${playCount}] Loops started\n`);
     },
 
     stop: () => {
       if (!playing) return;
+
+      console.log(`\n⏹ [Play ${playCount}] Stopping... Total updates: ${updateCount}`);
 
       if (rafId) {
         cancelAnimationFrame(rafId);
@@ -174,6 +188,7 @@ export function createAudioVisualizerController(
 
       playing = false;
       lastBarLevels.fill(0);
+      console.log(`✅ [Play ${playCount}] Stopped\n`);
     },
 
     updateConfig: (newConfig: Partial<VisualizerConfig>) => {
