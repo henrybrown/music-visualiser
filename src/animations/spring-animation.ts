@@ -76,6 +76,11 @@ export const createSpring = (
     velocity += acceleration * deltaTime;
     current += velocity * deltaTime;
 
+    if (current < 0) {
+      current = 0;
+      velocity = 0;
+    }
+
     return current;
   };
 
