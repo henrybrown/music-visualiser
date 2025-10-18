@@ -30,6 +30,8 @@ export interface ControlPanelProps {
   onAudioRefreshRateChange: (value: number) => void;
   springMode: keyof typeof SPRING_CONFIGS;
   onSpringModeChange: (value: keyof typeof SPRING_CONFIGS) => void;
+  changeThreshold: number;
+  onChangeThresholdChange: (value: number) => void;
   onResetAll: () => void;
   isPlaying: boolean;
 }
@@ -47,6 +49,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onAudioRefreshRateChange,
   springMode,
   onSpringModeChange,
+  changeThreshold,
+  onChangeThresholdChange,
   onResetAll,
   isPlaying,
 }) => {
@@ -101,6 +105,24 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           step="16"
           value={audioRefreshRate}
           onChange={(e) => onAudioRefreshRateChange(Number(e.target.value))}
+          className={styles.controlSlider}
+        />
+      </div>
+
+      <div className={styles.controlGroup}>
+        <label className={styles.controlLabel}>
+          Change Threshold: {changeThreshold.toFixed(2)}
+          <span className={styles.controlHint}>
+            Ignore changes smaller than this (0 = all changes, 0.2 = large changes only)
+          </span>
+        </label>
+        <input
+          type="range"
+          min="0"
+          max="0.3"
+          step="0.01"
+          value={changeThreshold}
+          onChange={(e) => onChangeThresholdChange(Number(e.target.value))}
           className={styles.controlSlider}
         />
       </div>

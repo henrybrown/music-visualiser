@@ -27,6 +27,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const [eqControlNodes, setEqControlNodes] = useState<EQControlNode[]>([]);
   const [audioRefreshRate, setAudioRefreshRate] = useState(2000);
   const [springMode, setSpringMode] = useState<SpringConfigKey>("extreme");
+  const [changeThreshold, setChangeThreshold] = useState(0.1);
 
   const minDecibels = -255 + dbRangeMin;
   const maxDecibels = -255 + dbRangeMax;
@@ -58,6 +59,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
 
   useEffect(() => {
     setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
+    lastBarLevelsRef.current = new Array(BAR_COUNT).fill(0);
   }, [BAR_COUNT]);
 
   const audioAnalyser = useAudioAnalyser();
@@ -67,6 +69,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const glowIntervalRef = useRef<number | null>(null);
   const visualizerWrapperRef = useRef<HTMLDivElement | null>(null);
   const [visualizerWidth, setVisualizerWidth] = useState(800);
+  const lastBarLevelsRef = useRef<number[]>(new Array(BAR_COUNT).fill(0));
 
   const handlePlay = useCallback(() => {
     audioAnalyser.loadTrack("/sample_audio_for_animation_demo.wav");
@@ -142,8 +145,15 @@ const MusicVisualizerDemoInner: React.FC = () => {
       if (!dataArray) return;
 
       for (let i = 0; i < BAR_COUNT; i++) {
-        const audioLevel = calculateAudioLevel(dataArray, i, activeFrequencyRanges, scaledFftSize);
-        engine.updateEntityContext(`bar-${i}`, { audioLevel });
+        const newLevel = calculateAudioLevel(dataArray, i, activeFrequencyRanges, scaledFftSize);
+        const lastLevel = lastBarLevelsRef.current[i];
+
+        // Only update if change exceeds threshold
+        if (Math.abs(newLevel - lastLevel) > changeThreshold) {
+          engine.updateEntityContext(`bar-${i}`, { audioLevel: newLevel });
+          lastBarLevelsRef.current[i] = newLevel;
+        }
+        // Otherwise: spring continues toward previous target
       }
     };
 
@@ -179,6 +189,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
     BAR_COUNT,
     scaledFftSize,
     audioRefreshRate,
+    changeThreshold,
   ]);
 
   const frequencyLabels = useMemo(() => {
@@ -231,6 +242,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
     setBarDensity(1);
     setAudioRefreshRate(2000);
     setSpringMode("extreme");
+    setChangeThreshold(0.1);
     setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
   }, [BAR_COUNT]);
 
@@ -330,6 +342,8 @@ const MusicVisualizerDemoInner: React.FC = () => {
           onAudioRefreshRateChange={setAudioRefreshRate}
           springMode={springMode}
           onSpringModeChange={setSpringMode}
+          changeThreshold={changeThreshold}
+          onChangeThresholdChange={setChangeThreshold}
           onResetAll={handleResetAll}
           isPlaying={isPlaying}
         />
