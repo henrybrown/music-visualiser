@@ -2,6 +2,7 @@ import type { WebAnimationEngine } from "../../gameplay/animations";
 import type { SpringConfigKey } from "../../gameplay/animations";
 
 export interface VisualizerConfig {
+  barCount: number;
   audioRefreshRate: number;
   changeThreshold: number;
   springMode: SpringConfigKey;
@@ -25,7 +26,6 @@ interface ControllerDependencies {
     getFrequencyData: () => Uint8Array | null;
     audioElement: HTMLAudioElement | null;
   };
-  barCount: number;
   initialConfig: VisualizerConfig;
 }
 
@@ -61,14 +61,14 @@ function calculateAudioLevel(
 export function createAudioVisualizerController(
   deps: ControllerDependencies,
 ): AudioVisualizerController {
-  const { engine, audioAnalyser, barCount, initialConfig } = deps;
+  const { engine, audioAnalyser, initialConfig } = deps;
 
   let rafId: number | null = null;
   let glowRafId: number | null = null;
   let config: VisualizerConfig = initialConfig;
   let playing = false;
 
-  const lastBarLevels = new Array(barCount).fill(0);
+  let lastBarLevels = new Array(config.barCount).fill(0);
   let lastAudioUpdate = 0;
   let lastGlowUpdate = 0;
 
@@ -88,7 +88,7 @@ export function createAudioVisualizerController(
     if (timestamp - lastAudioUpdate >= config.audioRefreshRate) {
       let updatesThisTick = 0;
 
-      for (let i = 0; i < barCount; i++) {
+      for (let i = 0; i < config.barCount; i++) {
         const rawLevel = calculateAudioLevel(dataArray, i, config.frequencyRanges, config.fftSize);
         const mappedLevel = BASELINE + rawLevel * (1.0 - BASELINE);
         const lastLevel = lastBarLevels[i];
@@ -124,7 +124,7 @@ export function createAudioVisualizerController(
     }
 
     if (timestamp - lastGlowUpdate >= 16) {
-      for (let i = 0; i < barCount; i++) {
+      for (let i = 0; i < config.barCount; i++) {
         const glowLevel = calculateAudioLevel(dataArray, i, config.frequencyRanges, config.fftSize);
         engine.updateEntityContext(`bar-${i}`, { glowLevel });
       }
@@ -146,7 +146,7 @@ export function createAudioVisualizerController(
       lastAudioUpdate = 0;
       lastGlowUpdate = 0;
 
-      for (let i = 0; i < barCount; i++) {
+      for (let i = 0; i < config.barCount; i++) {
         engine.updateEntityContext(`bar-${i}`, {
           audioLevel: BASELINE,
           glowLevel: 0,
@@ -179,7 +179,7 @@ export function createAudioVisualizerController(
 
       audioAnalyser.stop();
 
-      for (let i = 0; i < barCount; i++) {
+      for (let i = 0; i < config.barCount; i++) {
         engine.updateEntityContext(`bar-${i}`, {
           audioLevel: BASELINE,
           glowLevel: 0,
@@ -192,7 +192,14 @@ export function createAudioVisualizerController(
     },
 
     updateConfig: (newConfig: Partial<VisualizerConfig>) => {
+      const oldBarCount = config.barCount;
       config = { ...config, ...newConfig };
+
+      // If barCount changed, resize the cache array
+      if (newConfig.barCount !== undefined && newConfig.barCount !== oldBarCount) {
+        lastBarLevels = new Array(config.barCount).fill(0);
+        console.log(`📊 Bar count changed: ${oldBarCount} → ${config.barCount}`);
+      }
     },
 
     destroy: () => {

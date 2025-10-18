@@ -27,8 +27,8 @@ export function useAudioVisualizer(
     controllerRef.current = createAudioVisualizerController({
       engine,
       audioAnalyser,
-      barCount: config.barCount,
       initialConfig: {
+        barCount: config.barCount,
         audioRefreshRate: config.audioRefreshRate,
         changeThreshold: config.changeThreshold,
         springMode: config.springMode,
@@ -42,6 +42,7 @@ export function useAudioVisualizer(
 
   useLayoutEffect(() => {
     controller.updateConfig({
+      barCount: config.barCount,
       audioRefreshRate: config.audioRefreshRate,
       changeThreshold: config.changeThreshold,
       springMode: config.springMode,
@@ -49,6 +50,7 @@ export function useAudioVisualizer(
       fftSize: config.fftSize,
     });
   }, [
+    config.barCount,
     config.audioRefreshRate,
     config.changeThreshold,
     config.springMode,
