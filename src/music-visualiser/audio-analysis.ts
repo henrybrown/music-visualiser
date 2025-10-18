@@ -24,7 +24,7 @@ interface AudioAnalyserConfig {
 }
 
 interface AudioAnalyserReturn {
-  loadTrack: (src: string) => void;
+  loadTrack: (src: string) => Promise<void>;
   stop: () => void;
   getFrequencyData: () => Uint8Array | null;
   audioElement: HTMLAudioElement | null;

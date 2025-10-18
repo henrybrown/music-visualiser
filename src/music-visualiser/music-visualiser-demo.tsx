@@ -3,15 +3,12 @@ import {
   AnimationEngineProvider,
   useAnimationEngine,
 } from "../../gameplay/animations/animation-engine-context";
-import {
-  VisualizerDisplay,
-  subdivideFrequencyRanges,
-  calculateAudioLevel,
-} from "./visualizer-display";
+import { VisualizerDisplay, subdivideFrequencyRanges } from "./visualizer-display";
 import { ControlPanel, SMOOTHING_TIME_CONSTANT } from "./control-panel";
 import EQOverlay, { getDefaultEQNodes, type EQControlNode } from "./equalizer-components";
 import { useAudioAnalyser } from "./audio-analysis";
-import { SPRING_CONFIGS, type SpringConfigKey } from "../../gameplay/animations";
+import { useAudioVisualizer } from "./use-audio-visualizer";
+import type { SpringConfigKey } from "../../gameplay/animations";
 import styles from "./music-visualiser-demo.module.css";
 
 const FFT_SIZE = 2048;
@@ -59,59 +56,36 @@ const MusicVisualizerDemoInner: React.FC = () => {
 
   useEffect(() => {
     setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
-    lastBarLevelsRef.current = new Array(BAR_COUNT).fill(0);
   }, [BAR_COUNT]);
 
   const audioAnalyser = useAudioAnalyser();
   const engine = useAnimationEngine();
-
-  const intervalRef = useRef<number | null>(null);
-  const glowIntervalRef = useRef<number | null>(null);
   const visualizerWrapperRef = useRef<HTMLDivElement | null>(null);
   const [visualizerWidth, setVisualizerWidth] = useState(800);
-  const lastBarLevelsRef = useRef<number[]>(new Array(BAR_COUNT).fill(0));
 
-  const resetAllBars = useCallback(() => {
-    const BASELINE = 0.1; // Reset to baseline, not zero
-    for (let i = 0; i < BAR_COUNT; i++) {
-      engine.updateEntityContext(`bar-${i}`, { audioLevel: BASELINE, glowLevel: 0 });
-      lastBarLevelsRef.current[i] = BASELINE;
-    }
-  }, [BAR_COUNT, engine]);
+  const visualizer = useAudioVisualizer({
+    barCount: BAR_COUNT,
+    audioRefreshRate,
+    changeThreshold,
+    springMode,
+    frequencyRanges: activeFrequencyRanges,
+    fftSize: scaledFftSize,
+  });
 
-  const handlePlay = useCallback(() => {
-    resetAllBars();
-    lastBarLevelsRef.current = new Array(BAR_COUNT).fill(0);
-    audioAnalyser.loadTrack("/sample_audio_for_animation_demo.wav");
+  const handlePlay = async () => {
+    await visualizer.play("/sample_audio_for_animation_demo.wav");
     setIsPlaying(true);
-  }, [audioAnalyser.loadTrack, resetAllBars]);
+  };
 
-  const handleStop = useCallback(() => {
-    audioAnalyser.stop();
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (glowIntervalRef.current) {
-      clearInterval(glowIntervalRef.current);
-      glowIntervalRef.current = null;
-    }
+  const handleStop = () => {
+    visualizer.stop();
     setIsPlaying(false);
-    resetAllBars();
-  }, [audioAnalyser.stop, resetAllBars]);
+  };
 
   const handleTrackEnd = useCallback(() => {
+    visualizer.stop();
     setIsPlaying(false);
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (glowIntervalRef.current) {
-      clearInterval(glowIntervalRef.current);
-      glowIntervalRef.current = null;
-    }
-    resetAllBars();
-  }, [resetAllBars]);
+  }, [visualizer]);
 
   useEffect(() => {
     if (audioAnalyser.audioElement) {
@@ -153,75 +127,6 @@ const MusicVisualizerDemoInner: React.FC = () => {
     const gains = eqControlNodes.map((node) => node.gain);
     audioAnalyser.updateEQGains(gains);
   }, [eqControlNodes, audioAnalyser.updateEQGains]);
-
-  useEffect(() => {
-    if (!isPlaying) return;
-
-    engine.startSpringLoop(); // Start spring RAF loop
-
-    // Bar updates - slow refresh for smooth, bouncy motion
-    const updateBars = () => {
-      const dataArray = audioAnalyser.getFrequencyData();
-      if (!dataArray) {
-        console.log("❌ No data array");
-        return;
-      }
-
-      console.log("🔊 updateBars called, first 5 values:", Array.from(dataArray.slice(0, 5)));
-
-      for (let i = 0; i < BAR_COUNT; i++) {
-        const rawAudioLevel = calculateAudioLevel(
-          dataArray,
-          i,
-          activeFrequencyRanges,
-          scaledFftSize,
-        );
-        const lastLevel = lastBarLevelsRef.current[i];
-        const BASELINE = 0.1;
-        const mappedLevel = BASELINE + rawAudioLevel * (1.0 - BASELINE);
-
-        // Only update if change exceeds threshold
-        if (Math.abs(mappedLevel - lastLevel) > changeThreshold) {
-          engine.updateEntityContext(`bar-${i}`, { audioLevel: mappedLevel });
-          lastBarLevelsRef.current[i] = mappedLevel;
-        }
-      }
-    };
-
-    // Glow updates - fast refresh for reactive, energetic motion
-    const updateGlows = () => {
-      const dataArray = audioAnalyser.getFrequencyData();
-      if (!dataArray) return;
-
-      for (let i = 0; i < BAR_COUNT; i++) {
-        const glowLevel = calculateAudioLevel(dataArray, i, activeFrequencyRanges, scaledFftSize);
-        engine.updateEntityContext(`bar-${i}`, { glowLevel });
-      }
-    };
-
-    // Two independent intervals at different rates
-    intervalRef.current = window.setInterval(updateBars, audioRefreshRate);
-    glowIntervalRef.current = window.setInterval(updateGlows, 16);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      if (glowIntervalRef.current) {
-        clearInterval(glowIntervalRef.current);
-      }
-      //engine.stopSpringLoop();
-    };
-  }, [
-    isPlaying,
-    audioAnalyser.getFrequencyData,
-    engine,
-    activeFrequencyRanges,
-    BAR_COUNT,
-    scaledFftSize,
-    audioRefreshRate,
-    changeThreshold,
-  ]);
 
   const frequencyLabels = useMemo(() => {
     const targetFrequencies = [20, 100, 500, 1000, 5000, 10000, 20000];

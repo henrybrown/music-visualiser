@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from "react";
+import React, { useMemo } from "react";
 import { useAnimationRegistration } from "../../gameplay/animations/use-animation-registration";
 import { useAnimationEngine } from "../../gameplay/animations/animation-engine-context";
 import type { SpringAnimationDefinition } from "../../gameplay/animations/animation-types";
@@ -149,15 +149,6 @@ export const EqualizerBar: React.FC<{
   );
 
   const { createAnimationRef } = useAnimationRegistration(barId);
-  const engine = useAnimationEngine();
-
-  useEffect(() => {
-    const BASELINE_AUDIO_LEVEL = 0.1;
-    engine.updateEntityContext(barId, {
-      audioLevel: BASELINE_AUDIO_LEVEL,
-      glowLevel: 0,
-    });
-  }, [barId, engine]);
 
   const index = parseInt(barId.split("-")[1]);
   const hue = ((10 + index * 22) / 720) * 360;
