@@ -81,6 +81,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
 
   const handlePlay = useCallback(() => {
     resetAllBars();
+    lastBarLevelsRef.current = new Array(BAR_COUNT).fill(0);
     audioAnalyser.loadTrack("/sample_audio_for_animation_demo.wav");
     setIsPlaying(true);
   }, [audioAnalyser.loadTrack, resetAllBars]);
@@ -161,7 +162,12 @@ const MusicVisualizerDemoInner: React.FC = () => {
     // Bar updates - slow refresh for smooth, bouncy motion
     const updateBars = () => {
       const dataArray = audioAnalyser.getFrequencyData();
-      if (!dataArray) return;
+      if (!dataArray) {
+        console.log("❌ No data array");
+        return;
+      }
+
+      console.log("🔊 updateBars called, first 5 values:", Array.from(dataArray.slice(0, 5)));
 
       for (let i = 0; i < BAR_COUNT; i++) {
         const rawAudioLevel = calculateAudioLevel(
@@ -171,8 +177,6 @@ const MusicVisualizerDemoInner: React.FC = () => {
           scaledFftSize,
         );
         const lastLevel = lastBarLevelsRef.current[i];
-
-        // Map raw audio (0→1) to baseline range (0.1→1.0)
         const BASELINE = 0.1;
         const mappedLevel = BASELINE + rawAudioLevel * (1.0 - BASELINE);
 
@@ -181,7 +185,6 @@ const MusicVisualizerDemoInner: React.FC = () => {
           engine.updateEntityContext(`bar-${i}`, { audioLevel: mappedLevel });
           lastBarLevelsRef.current[i] = mappedLevel;
         }
-        // Otherwise: spring continues toward previous target
       }
     };
 

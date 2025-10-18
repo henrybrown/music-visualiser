@@ -151,7 +151,6 @@ export const EqualizerBar: React.FC<{
   const { createAnimationRef } = useAnimationRegistration(barId);
   const engine = useAnimationEngine();
 
-  // Set baseline on mount
   useEffect(() => {
     const BASELINE_AUDIO_LEVEL = 0.1;
     engine.updateEntityContext(barId, {
@@ -175,7 +174,6 @@ export const EqualizerBar: React.FC<{
       data-frequency={freqLabel}
       style={{
         width: `${barWidth}px`,
-        // height: `${BASE_HEIGHT + CAP_HEIGHT}px`,
       }}
     >
       <div
