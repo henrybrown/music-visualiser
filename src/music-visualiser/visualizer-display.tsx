@@ -96,10 +96,15 @@ export const EqualizerBar: React.FC<{
   const animations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
-        keyframes: [{ transform: "scaleY(1)" }, { transform: "scaleY(10)" }],
+        keyframes: [{ transform: "scaleY(0.83)" }, { transform: "scaleY(10)" }],
         springConfig: SPRING_CONFIGS[springMode],
         options: { duration: 1000 },
-        trackContext: (context) => (context.audioLevel as number) ?? 0,
+        trackContext: (context) => {
+          const audioLevel = (context.audioLevel as number) ?? 0;
+          // Map audio level 0→1 to spring target 1.0→10.0
+          // Keyframes are 0.83→10, so target 1.0 = ~25px (allows undershoot to 0.83)
+          return 1.0 + audioLevel * 9.0;
+        },
       },
     }),
     [springMode],
@@ -108,10 +113,15 @@ export const EqualizerBar: React.FC<{
   const capAnimations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
-        keyframes: [{ transform: "translateY(0px)" }, { transform: "translateY(-270px)" }],
+        keyframes: [{ transform: "translateY(5px)" }, { transform: "translateY(-270px)" }],
         springConfig: SPRING_CONFIGS[springMode],
         options: { duration: 1000 },
-        trackContext: (context) => (context.audioLevel as number) ?? 0,
+        trackContext: (context) => {
+          const audioLevel = (context.audioLevel as number) ?? 0;
+          // Map audio level 0→1 to spring target 0→270px travel
+          // Keyframes allow +5px overshoot (cap drops below resting position)
+          return audioLevel * 270;
+        },
       },
     }),
     [springMode],

@@ -71,10 +71,18 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const [visualizerWidth, setVisualizerWidth] = useState(800);
   const lastBarLevelsRef = useRef<number[]>(new Array(BAR_COUNT).fill(0));
 
+  const resetAllBars = useCallback(() => {
+    for (let i = 0; i < BAR_COUNT; i++) {
+      engine.updateEntityContext(`bar-${i}`, { audioLevel: 0 });
+      lastBarLevelsRef.current[i] = 0;
+    }
+  }, [BAR_COUNT, engine]);
+
   const handlePlay = useCallback(() => {
+    resetAllBars();
     audioAnalyser.loadTrack("/sample_audio_for_animation_demo.wav");
     setIsPlaying(true);
-  }, [audioAnalyser.loadTrack]);
+  }, [audioAnalyser.loadTrack, resetAllBars]);
 
   const handleStop = useCallback(() => {
     audioAnalyser.stop();
@@ -82,8 +90,13 @@ const MusicVisualizerDemoInner: React.FC = () => {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    if (glowIntervalRef.current) {
+      clearInterval(glowIntervalRef.current);
+      glowIntervalRef.current = null;
+    }
     setIsPlaying(false);
-  }, [audioAnalyser.stop]);
+    resetAllBars();
+  }, [audioAnalyser.stop, resetAllBars]);
 
   const handleTrackEnd = useCallback(() => {
     setIsPlaying(false);
@@ -91,7 +104,12 @@ const MusicVisualizerDemoInner: React.FC = () => {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-  }, []);
+    if (glowIntervalRef.current) {
+      clearInterval(glowIntervalRef.current);
+      glowIntervalRef.current = null;
+    }
+    resetAllBars();
+  }, [resetAllBars]);
 
   useEffect(() => {
     if (audioAnalyser.audioElement) {
@@ -240,7 +258,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
     setDbRangeMin(170);
     setDbRangeMax(245);
     setBarDensity(1);
-    setAudioRefreshRate(2000);
+    setAudioRefreshRate(500);
     setSpringMode("extreme");
     setChangeThreshold(0.1);
     setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
@@ -301,6 +319,27 @@ const MusicVisualizerDemoInner: React.FC = () => {
           ⏹ Stop
         </button>
 
+        <div className={styles.densityToggle}>
+          <button
+            onClick={() => setBarDensity(1)}
+            className={`${styles.button} ${styles.buttonDensity} ${barDensity === 1 ? styles.buttonSelected : ""}`}
+          >
+            31
+          </button>
+          <button
+            onClick={() => setBarDensity(2)}
+            className={`${styles.button} ${styles.buttonDensity} ${barDensity === 2 ? styles.buttonSelected : ""}`}
+          >
+            62
+          </button>
+          <button
+            onClick={() => setBarDensity(4)}
+            className={`${styles.button} ${styles.buttonDensity} ${barDensity === 4 ? styles.buttonSelected : ""}`}
+          >
+            124
+          </button>
+        </div>
+
         <button
           onClick={() => setShowEQ(!showEQ)}
           className={`${styles.button} ${styles.buttonEQ}`}
@@ -317,14 +356,13 @@ const MusicVisualizerDemoInner: React.FC = () => {
 
         <button
           onClick={() => {
-            // Set all bars to random targets to test bounce
             for (let i = 0; i < BAR_COUNT; i++) {
               engine.updateEntityContext(`bar-${i}`, { audioLevel: Math.random() });
             }
           }}
-          className={`${styles.button}`}
+          className={`${styles.button} ${styles.buttonRandom}`}
         >
-          🎲 Random Jump
+          🎲
         </button>
       </div>
 
@@ -336,8 +374,6 @@ const MusicVisualizerDemoInner: React.FC = () => {
           dbRangeMax={dbRangeMax}
           onDbRangeMinChange={setDbRangeMin}
           onDbRangeMaxChange={setDbRangeMax}
-          barDensity={barDensity}
-          onBarDensityChange={setBarDensity}
           audioRefreshRate={audioRefreshRate}
           onAudioRefreshRateChange={setAudioRefreshRate}
           springMode={springMode}

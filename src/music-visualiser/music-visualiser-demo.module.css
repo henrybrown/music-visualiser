@@ -109,6 +109,44 @@
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
+.densityToggle {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.buttonDensity {
+  min-width: 60px;
+  padding: 0.6rem 0.75rem;
+  background: #64748b;
+}
+
+.buttonDensity:hover:not(.buttonDisabled) {
+  background: #475569;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
+}
+
+.buttonSelected {
+  background: #3b82f6;
+  font-weight: 700;
+}
+
+.buttonSelected:hover {
+  background: #2563eb;
+}
+
+.buttonRandom {
+  background: #8b5cf6;
+  min-width: 50px;
+}
+
+.buttonRandom:hover:not(.buttonDisabled) {
+  background: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
 .buttonReset {
   background: #64748b;
   width: 100%;
