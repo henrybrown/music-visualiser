@@ -3,13 +3,10 @@ import { useAnimationRegistration } from "../../gameplay/animations/use-animatio
 import type { SpringAnimationDefinition } from "../../gameplay/animations/animation-types";
 import demoStyles from "./music-visualiser-demo.module.css";
 import styles from "./visualizer-display.module.css";
-import { type VisualiserMode } from "../../gameplay/animations";
+import { SPRING_CONFIGS, type SpringConfigKey } from "../../gameplay/animations";
 
 const BASE_HEIGHT = 30;
 const CAP_HEIGHT = 6;
-
-// Visualiser-specific spring preset - "extreme" bounce for dramatic audio-reactive animations
-const VISUALISER_SPRING_PRESET = { stiffness: 30, damping: 3, mass: 1 };
 
 export const FREQUENCY_RANGES = [
   [20, 40],
@@ -94,29 +91,30 @@ export const EqualizerBar: React.FC<{
   barId: string;
   frequencyRanges: readonly (readonly [number, number])[];
   barWidth: number;
-}> = ({ barId, frequencyRanges, barWidth }) => {
+  springMode: SpringConfigKey;
+}> = ({ barId, frequencyRanges, barWidth, springMode }) => {
   const animations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
         keyframes: [{ transform: "scaleY(1)" }, { transform: "scaleY(10)" }],
-        springConfig: VISUALISER_SPRING_PRESET,
+        springConfig: SPRING_CONFIGS[springMode],
         options: { duration: 1000 },
         trackContext: (context) => (context.audioLevel as number) ?? 0,
       },
     }),
-    [],
+    [springMode],
   );
 
   const capAnimations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
         keyframes: [{ transform: "translateY(0px)" }, { transform: "translateY(-270px)" }],
-        springConfig: VISUALISER_SPRING_PRESET,
+        springConfig: SPRING_CONFIGS[springMode],
         options: { duration: 1000 },
         trackContext: (context) => (context.audioLevel as number) ?? 0,
       },
     }),
-    [],
+    [springMode],
   );
 
   const glowAnimations: Record<string, SpringAnimationDefinition> = useMemo(
@@ -195,6 +193,7 @@ export interface VisualizerDisplayProps {
   barCount: number;
   barWidth: number;
   frequencyRanges: readonly (readonly [number, number])[];
+  springMode: SpringConfigKey;
   children?: React.ReactNode;
 }
 
@@ -202,6 +201,7 @@ export const VisualizerDisplay: React.FC<VisualizerDisplayProps> = ({
   barCount,
   barWidth,
   frequencyRanges,
+  springMode,
   children,
 }) => {
   return (
@@ -212,6 +212,7 @@ export const VisualizerDisplay: React.FC<VisualizerDisplayProps> = ({
           barId={`bar-${i}`}
           frequencyRanges={frequencyRanges}
           barWidth={barWidth}
+          springMode={springMode}
         />
       ))}
       {children}

@@ -11,7 +11,7 @@ import {
 import { ControlPanel, SMOOTHING_TIME_CONSTANT } from "./control-panel";
 import EQOverlay, { getDefaultEQNodes, type EQControlNode } from "./equalizer-components";
 import { useAudioAnalyser } from "./audio-analysis";
-import { VISUALISER_MODES, type VisualiserMode } from "../../gameplay/animations";
+import { SPRING_CONFIGS, type SpringConfigKey } from "../../gameplay/animations";
 import styles from "./music-visualiser-demo.module.css";
 
 const FFT_SIZE = 2048;
@@ -26,6 +26,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const [showEQ, setShowEQ] = useState(true);
   const [eqControlNodes, setEqControlNodes] = useState<EQControlNode[]>([]);
   const [audioRefreshRate, setAudioRefreshRate] = useState(2000);
+  const [springMode, setSpringMode] = useState<SpringConfigKey>("extreme");
 
   const minDecibels = -255 + dbRangeMin;
   const maxDecibels = -255 + dbRangeMax;
@@ -208,6 +209,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
     setDbRangeMax(245);
     setBarDensity(1);
     setAudioRefreshRate(2000);
+    setSpringMode("extreme");
     setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
   }, [BAR_COUNT]);
 
@@ -218,6 +220,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
           barCount={BAR_COUNT}
           barWidth={barWidth}
           frequencyRanges={activeFrequencyRanges}
+          springMode={springMode}
         >
           {showEQ && (
             <EQOverlay
@@ -303,6 +306,8 @@ const MusicVisualizerDemoInner: React.FC = () => {
           onBarDensityChange={setBarDensity}
           audioRefreshRate={audioRefreshRate}
           onAudioRefreshRateChange={setAudioRefreshRate}
+          springMode={springMode}
+          onSpringModeChange={setSpringMode}
           onResetAll={handleResetAll}
           isPlaying={isPlaying}
         />

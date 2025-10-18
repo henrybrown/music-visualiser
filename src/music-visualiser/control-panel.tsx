@@ -9,6 +9,8 @@ const SPRING_CONFIG_LABELS: Record<keyof typeof SPRING_CONFIGS, string> = {
   bouncy: "Bouncy - Visible Overshoot",
   smooth: "Smooth - Gentle Movement",
   stiff: "Stiff - Quick & Controlled",
+  cascadedOverdamped: "Cascaded Overdamped - Smooth Input, Bouncy Display",
+  cascadedUnderdamped: "Cascaded Underdamped - Overshoot Both Stages",
 };
 
 export interface ControlPanelProps {
@@ -22,6 +24,8 @@ export interface ControlPanelProps {
   onBarDensityChange: (value: 1 | 2 | 4) => void;
   audioRefreshRate: number;
   onAudioRefreshRateChange: (value: number) => void;
+  springMode: keyof typeof SPRING_CONFIGS;
+  onSpringModeChange: (value: keyof typeof SPRING_CONFIGS) => void;
   onResetAll: () => void;
   isPlaying: boolean;
 }
@@ -37,6 +41,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onBarDensityChange,
   audioRefreshRate,
   onAudioRefreshRateChange,
+  springMode,
+  onSpringModeChange,
   onResetAll,
   isPlaying,
 }) => {
@@ -44,6 +50,25 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const maxDecibels = -255 + dbRangeMax;
   return (
     <div className={styles.controlPanel}>
+      <div className={styles.controlGroup}>
+        <label className={styles.controlLabel}>
+          Spring Physics Mode
+          <span className={styles.controlHint}>Animation bounce behavior</span>
+        </label>
+        <select
+          value={springMode}
+          onChange={(e) => onSpringModeChange(e.target.value as keyof typeof SPRING_CONFIGS)}
+          className={styles.controlSelect}
+          disabled={isPlaying}
+        >
+          {(Object.keys(SPRING_CONFIGS) as Array<keyof typeof SPRING_CONFIGS>).map((key) => (
+            <option key={key} value={key}>
+              {SPRING_CONFIG_LABELS[key]}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className={styles.controlGroup}>
         <label className={styles.controlLabel}>
           Bar Density
