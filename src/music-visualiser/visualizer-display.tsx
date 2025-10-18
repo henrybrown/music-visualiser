@@ -103,8 +103,9 @@ export const EqualizerBar: React.FC<{
         trackContext: (context) => {
           const audioLevel = (context.audioLevel as number) ?? 0.1;
           // Map audioLevel to scale factor: 0.1 → 1, 1.0 → 10
-          return audioLevel * 10;
+          return audioLevel;
         },
+        clampRange: { min: 0, max: 1 },
       },
     }),
     [springMode],
