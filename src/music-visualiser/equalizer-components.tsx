@@ -40,6 +40,7 @@ export interface EQOverlayProps {
   barWidth: number;
   barCount: number;
   frequencyRanges: readonly (readonly [number, number])[];
+  containerWidth: number;
 }
 
 const EQOverlay: React.FC<EQOverlayProps> = ({
@@ -49,11 +50,14 @@ const EQOverlay: React.FC<EQOverlayProps> = ({
   barWidth,
   barCount,
   frequencyRanges,
+  containerWidth: propContainerWidth,
 }) => {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const containerWidth = svgRef.current?.clientWidth || 800;
+  // Account for container padding (1rem = 16px on each side)
+  const containerPadding = 32;
+  const containerWidth = propContainerWidth - containerPadding;
 
   const barPositions = useMemo(() => {
     return calculateBarPositions(containerWidth, barWidth, barCount, 3);

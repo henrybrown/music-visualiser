@@ -65,6 +65,8 @@ const MusicVisualizerDemoInner: React.FC = () => {
 
   const intervalRef = useRef<number | null>(null);
   const glowIntervalRef = useRef<number | null>(null);
+  const visualizerWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [visualizerWidth, setVisualizerWidth] = useState(800);
 
   const handlePlay = useCallback(() => {
     audioAnalyser.loadTrack("/sample_audio_for_animation_demo.wav");
@@ -109,6 +111,20 @@ const MusicVisualizerDemoInner: React.FC = () => {
   useEffect(() => {
     audioAnalyser.initEQFilters();
   }, [audioAnalyser.initEQFilters]);
+
+  // Measure visualizer container width
+  useEffect(() => {
+    const measureWidth = () => {
+      if (visualizerWrapperRef.current) {
+        const width = visualizerWrapperRef.current.offsetWidth;
+        setVisualizerWidth(width);
+      }
+    };
+
+    measureWidth();
+    window.addEventListener("resize", measureWidth);
+    return () => window.removeEventListener("resize", measureWidth);
+  }, []);
 
   useEffect(() => {
     const gains = eqControlNodes.map((node) => node.gain);
@@ -169,10 +185,15 @@ const MusicVisualizerDemoInner: React.FC = () => {
     const targetFrequencies = [20, 100, 500, 1000, 5000, 10000, 20000];
     const labels = [];
 
-    // Same calculation as EQ overlay
+    // Account for container padding (1rem = 16px on each side)
+    const containerPadding = 32; // 16px * 2
+    const availableWidth = visualizerWidth - containerPadding;
+
+    // Calculate actual bars width
     const totalBarsWidth = barWidth * BAR_COUNT + 3 * (BAR_COUNT - 1);
-    const containerWidth = 800; // Could get from ref if needed
-    const offset = (containerWidth - totalBarsWidth) / 2;
+
+    // Bars are centered via flexbox, calculate offset from container edge
+    const offset = Math.max(0, (availableWidth - totalBarsWidth) / 2) + 16; // +16 for left padding
 
     for (const targetHz of targetFrequencies) {
       let closestIndex = 0;
@@ -194,14 +215,14 @@ const MusicVisualizerDemoInner: React.FC = () => {
       const avgHz = (minHz + maxHz) / 2;
       const label = avgHz >= 1000 ? `${(avgHz / 1000).toFixed(1)}kHz` : `${Math.round(avgHz)}Hz`;
 
-      // Calculate position using SAME formula as EQ
+      // Calculate position relative to container
       const xPos = offset + barWidth / 2 + (barWidth + 3) * closestIndex;
 
       labels.push({ index: closestIndex, label, xPos });
     }
 
     return labels;
-  }, [activeFrequencyRanges, barWidth, BAR_COUNT]);
+  }, [activeFrequencyRanges, barWidth, BAR_COUNT, visualizerWidth]);
 
   const handleResetAll = useCallback(() => {
     setSmoothing(SMOOTHING_TIME_CONSTANT);
@@ -215,7 +236,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.visualizerWrapper}>
+      <div ref={visualizerWrapperRef} className={styles.visualizerWrapper}>
         <VisualizerDisplay
           barCount={BAR_COUNT}
           barWidth={barWidth}
@@ -230,6 +251,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
               barWidth={barWidth}
               barCount={BAR_COUNT}
               frequencyRanges={activeFrequencyRanges}
+              containerWidth={visualizerWidth}
             />
           )}
         </VisualizerDisplay>
