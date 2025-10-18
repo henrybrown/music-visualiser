@@ -32,7 +32,7 @@
 
 .cap {
   position: absolute;
-  bottom: 28px; /* BASE_HEIGHT - 2 */
+  bottom: 0;
   left: 0;
   height: 6px;
   transform-origin: bottom;

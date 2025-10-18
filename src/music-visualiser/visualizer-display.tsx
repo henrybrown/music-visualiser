@@ -1,5 +1,6 @@
-import React, { useMemo, useRef, useEffect } from "react";
+import React, { useMemo, useEffect } from "react";
 import { useAnimationRegistration } from "../../gameplay/animations/use-animation-registration";
+import { useAnimationEngine } from "../../gameplay/animations/animation-engine-context";
 import type { SpringAnimationDefinition } from "../../gameplay/animations/animation-types";
 import demoStyles from "./music-visualiser-demo.module.css";
 import styles from "./visualizer-display.module.css";
@@ -96,14 +97,13 @@ export const EqualizerBar: React.FC<{
   const animations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
-        keyframes: [{ transform: "scaleY(0.83)" }, { transform: "scaleY(10)" }],
+        keyframes: [{ transform: "scaleY(0)" }, { transform: "scaleY(10)" }],
         springConfig: SPRING_CONFIGS[springMode],
         options: { duration: 1000 },
         trackContext: (context) => {
-          const audioLevel = (context.audioLevel as number) ?? 0;
-          // Map audio level 0→1 to spring target 1.0→10.0
-          // Keyframes are 0.83→10, so target 1.0 = ~25px (allows undershoot to 0.83)
-          return 1.0 + audioLevel * 9.0;
+          const audioLevel = (context.audioLevel as number) ?? 0.1;
+          // Map audioLevel to scale factor: 0.1 → 1, 1.0 → 10
+          return audioLevel * 10;
         },
       },
     }),
@@ -113,15 +113,10 @@ export const EqualizerBar: React.FC<{
   const capAnimations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
-        keyframes: [{ transform: "translateY(5px)" }, { transform: "translateY(-270px)" }],
+        keyframes: [{ transform: "translateY(0px)" }, { transform: "translateY(-300px)" }],
         springConfig: SPRING_CONFIGS[springMode],
         options: { duration: 1000 },
-        trackContext: (context) => {
-          const audioLevel = (context.audioLevel as number) ?? 0;
-          // Map audio level 0→1 to spring target 0→270px travel
-          // Keyframes allow +5px overshoot (cap drops below resting position)
-          return audioLevel * 270;
-        },
+        trackContext: (context) => (context.audioLevel as number) ?? 0.1,
       },
     }),
     [springMode],
@@ -143,10 +138,17 @@ export const EqualizerBar: React.FC<{
     [],
   );
 
-  const { createAnimationRef } = useAnimationRegistration(barId, {
-    targetHeight: BASE_HEIGHT,
-    previousHeight: BASE_HEIGHT,
-  });
+  const { createAnimationRef } = useAnimationRegistration(barId);
+  const engine = useAnimationEngine();
+
+  // Set baseline on mount
+  useEffect(() => {
+    const BASELINE_AUDIO_LEVEL = 0.1;
+    engine.updateEntityContext(barId, {
+      audioLevel: BASELINE_AUDIO_LEVEL,
+      glowLevel: 0,
+    });
+  }, [barId, engine]);
 
   const index = parseInt(barId.split("-")[1]);
   const hue = ((10 + index * 22) / 720) * 360;
@@ -163,7 +165,7 @@ export const EqualizerBar: React.FC<{
       data-frequency={freqLabel}
       style={{
         width: `${barWidth}px`,
-        height: `${BASE_HEIGHT + CAP_HEIGHT}px`,
+        // height: `${BASE_HEIGHT + CAP_HEIGHT}px`,
       }}
     >
       <div

@@ -72,9 +72,10 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const lastBarLevelsRef = useRef<number[]>(new Array(BAR_COUNT).fill(0));
 
   const resetAllBars = useCallback(() => {
+    const BASELINE = 0.1; // Reset to baseline, not zero
     for (let i = 0; i < BAR_COUNT; i++) {
-      engine.updateEntityContext(`bar-${i}`, { audioLevel: 0 });
-      lastBarLevelsRef.current[i] = 0;
+      engine.updateEntityContext(`bar-${i}`, { audioLevel: BASELINE, glowLevel: 0 });
+      lastBarLevelsRef.current[i] = BASELINE;
     }
   }, [BAR_COUNT, engine]);
 
@@ -163,13 +164,17 @@ const MusicVisualizerDemoInner: React.FC = () => {
       if (!dataArray) return;
 
       for (let i = 0; i < BAR_COUNT; i++) {
-        const newLevel = calculateAudioLevel(dataArray, i, activeFrequencyRanges, scaledFftSize);
+        const rawAudioLevel = calculateAudioLevel(dataArray, i, activeFrequencyRanges, scaledFftSize);
         const lastLevel = lastBarLevelsRef.current[i];
 
+        // Map raw audio (0→1) to baseline range (0.1→1.0)
+        const BASELINE = 0.1;
+        const mappedLevel = BASELINE + rawAudioLevel * (1.0 - BASELINE);
+
         // Only update if change exceeds threshold
-        if (Math.abs(newLevel - lastLevel) > changeThreshold) {
-          engine.updateEntityContext(`bar-${i}`, { audioLevel: newLevel });
-          lastBarLevelsRef.current[i] = newLevel;
+        if (Math.abs(mappedLevel - lastLevel) > changeThreshold) {
+          engine.updateEntityContext(`bar-${i}`, { audioLevel: mappedLevel });
+          lastBarLevelsRef.current[i] = mappedLevel;
         }
         // Otherwise: spring continues toward previous target
       }
