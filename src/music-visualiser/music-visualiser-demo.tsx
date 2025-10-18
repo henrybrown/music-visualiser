@@ -164,7 +164,12 @@ const MusicVisualizerDemoInner: React.FC = () => {
       if (!dataArray) return;
 
       for (let i = 0; i < BAR_COUNT; i++) {
-        const rawAudioLevel = calculateAudioLevel(dataArray, i, activeFrequencyRanges, scaledFftSize);
+        const rawAudioLevel = calculateAudioLevel(
+          dataArray,
+          i,
+          activeFrequencyRanges,
+          scaledFftSize,
+        );
         const lastLevel = lastBarLevelsRef.current[i];
 
         // Map raw audio (0→1) to baseline range (0.1→1.0)
@@ -202,7 +207,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
       if (glowIntervalRef.current) {
         clearInterval(glowIntervalRef.current);
       }
-      engine.stopSpringLoop();
+      //engine.stopSpringLoop();
     };
   }, [
     isPlaying,

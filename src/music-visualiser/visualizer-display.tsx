@@ -102,10 +102,14 @@ export const EqualizerBar: React.FC<{
         options: { duration: 1000 },
         trackContext: (context) => {
           const audioLevel = (context.audioLevel as number) ?? 0.1;
-          // Map audioLevel to scale factor: 0.1 → 1, 1.0 → 10
+          // Map audioLevel to spring progress: 0.1 → 0.1, 1.0 → 1.0
           return audioLevel;
         },
-        clampRange: { min: 0, max: 1 },
+        clampRange: { min: 0 },
+        cushion: {
+          threshold: 0.1, // Below baseline (audioLevel < 0.1)
+          dampingMultiplier: 4.0, // Double damping in cushion zone
+        },
       },
     }),
     [springMode],
@@ -118,6 +122,11 @@ export const EqualizerBar: React.FC<{
         springConfig: SPRING_CONFIGS[springMode],
         options: { duration: 1000 },
         trackContext: (context) => (context.audioLevel as number) ?? 0.1,
+        clampRange: { min: 0 },
+        cushion: {
+          threshold: 0.1, // Below baseline (audioLevel < 0.1)
+          dampingMultiplier: 4.0, // Double damping in cushion zone
+        },
       },
     }),
     [springMode],

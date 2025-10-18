@@ -12,7 +12,9 @@ interface SpringData {
   duration: number;
   trackContext?: (context: Record<string, unknown>) => number;
   entityId: string;
-  clampRange?: { min: number; max: number };
+  clampRange?:
+    | { min?: number | null; max: number | null }
+    | { min: number | null; max?: number | null };
 }
 
 export interface WebAnimationEngine {
@@ -34,7 +36,7 @@ export interface WebAnimationEngine {
   updateEntityContext: (
     entityId: string,
     context: EntityContext,
-    options?: { autoStartLoop?: boolean }
+    options?: { autoStartLoop?: boolean },
   ) => void;
   getEntityContext: (entityId: string) => EntityContext | undefined;
   getEngineInfo: () => {
@@ -84,7 +86,11 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
       if (isSpringAnimation(animDef)) {
         const initialValue = animDef.initialValue ?? 0;
-        const spring = createSpring(initialValue, animDef.springConfig || SPRING_PRESETS.gentle);
+        const spring = createSpring(
+          initialValue,
+          animDef.springConfig || SPRING_PRESETS.gentle,
+          animDef.cushion,
+        );
 
         const animation = element.animate(animDef.keyframes, {
           ...animDef.options,
@@ -153,7 +159,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
   const updateEntityContext = (
     entityId: string,
     context: EntityContext,
-    options?: { autoStartLoop?: boolean }
+    options?: { autoStartLoop?: boolean },
   ) => {
     const existing = entityContexts.get(entityId) || {};
     const newContext = { ...existing, ...context };
@@ -167,8 +173,8 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       }
     });
 
-    // Explicit control over loop restart (defaults to true for backward compatibility)
-    const shouldAutoStart = options?.autoStartLoop ?? true;
+    //Explicit control over loop restart
+    const shouldAutoStart = options?.autoStartLoop ?? false;
     if (shouldAutoStart && !rafId && springs.size > 0) {
       startSpringLoop();
     }
@@ -188,7 +194,6 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
   };
 
   const startSpringLoop = () => {
-    // Guard: Prevent multiple RAF loops from running simultaneously
     if (rafId) return;
 
     const tick = (currentTime: number) => {
@@ -216,15 +221,21 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
           // Apply clamping if configured, otherwise let spring overshoot naturally
           const clamped = clampRange
-            ? Math.max(clampRange.min, Math.min(clampRange.max, progress))
+            ? Math.max(clampRange.min || -Infinity, Math.min(clampRange.max || +Infinity, progress))
             : progress;
 
           animation.currentTime = clamped * duration;
+        } else {
+          // Spring is at rest - snap to exact target for pixel-perfect settling
+          const target = spring.getTarget?.() ?? spring.getCurrent();
+          const clamped = clampRange
+            ? Math.max(clampRange.min || -Infinity, Math.min(clampRange.max || +Infinity, target))
+            : target;
+          animation.currentTime = clamped * duration;
         }
-        // Springs at rest are skipped - no work needed
       });
 
-      // PHASE 3: Decide whether to continue RAF loop
+      // Decide whether to continue RAF loop
       // Continue only if springs exist AND at least one is moving
       // Otherwise stop the loop to conserve CPU until next context update
       if (anyActive && springs.size > 0) {
@@ -236,7 +247,7 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       }
     };
 
-    // Kickstart the RAF loop - schedules the first frame
+    // start the RAF loop - schedules the first frame
     rafId = requestAnimationFrame(tick);
   };
 

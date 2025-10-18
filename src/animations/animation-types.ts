@@ -1,8 +1,13 @@
-import type { SpringConfig } from './spring-animation';
+import type { SpringConfig } from "./spring-animation";
 
 export interface WaapiAnimationDefinition {
   keyframes: Keyframe[];
   options?: KeyframeAnimationOptions;
+}
+
+export interface SpringCushion {
+  threshold: number;
+  dampingMultiplier: number;
 }
 
 export interface SpringAnimationDefinition {
@@ -10,8 +15,11 @@ export interface SpringAnimationDefinition {
   springConfig?: SpringConfig;
   options?: KeyframeAnimationOptions;
   trackContext?: (context: Record<string, unknown>) => number;
-  clampRange?: { min: number; max: number };
+  clampRange?:
+    | { min?: number | null; max: number | null }
+    | { min: number | null; max?: number | null };
   initialValue?: number;
+  cushion?: SpringCushion;
 }
 
 export type AnimationDefinitionStatic = WaapiAnimationDefinition | SpringAnimationDefinition;
@@ -31,13 +39,13 @@ export interface AnimationTransition {
 }
 
 export const isSpringAnimation = (
-  def: AnimationDefinitionStatic
+  def: AnimationDefinitionStatic,
 ): def is SpringAnimationDefinition => {
-  return 'springConfig' in def;
+  return "springConfig" in def;
 };
 
 export const isWaapiAnimation = (
-  def: AnimationDefinitionStatic
+  def: AnimationDefinitionStatic,
 ): def is WaapiAnimationDefinition => {
-  return !('springConfig' in def);
+  return !("springConfig" in def);
 };

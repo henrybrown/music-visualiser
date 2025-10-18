@@ -37,6 +37,7 @@ export type VisualiserMode = SpringConfigKey;
 export const createSpring = (
   initial: number,
   config: SpringConfig = SPRING_PRESETS.gentle,
+  cushion?: { threshold: number; dampingMultiplier: number },
 ): Spring => {
   let current = initial;
   let target = initial;
@@ -46,7 +47,7 @@ export const createSpring = (
     stiffness: config.stiffness,
     damping: config.damping,
     mass: config.mass ?? 1,
-    precision: config.precision ?? 0.01,
+    precision: config.precision ?? 0.001,
   };
 
   const setTarget = (newTarget: number): void => {
@@ -60,7 +61,13 @@ export const createSpring = (
       return current;
     }
 
-    const { stiffness, damping, mass } = fullConfig;
+    const { stiffness, mass } = fullConfig;
+    let { damping } = fullConfig;
+
+    // Apply cushion if below threshold
+    if (cushion && current < cushion.threshold) {
+      damping = damping * cushion.dampingMultiplier;
+    }
 
     const springForce = -stiffness * (current - target);
     const dampingForce = -damping * velocity;
@@ -75,10 +82,7 @@ export const createSpring = (
   const isAtRest = (): boolean => {
     const { precision } = fullConfig;
 
-    return (
-      Math.abs(current - target) < precision &&
-      Math.abs(velocity) < precision
-    );
+    return Math.abs(current - target) < precision && Math.abs(velocity) < precision;
   };
 
   const getCurrent = (): number => current;
