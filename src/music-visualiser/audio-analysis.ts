@@ -94,6 +94,7 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
       console.log(
         `✅ New analyser created: fftSize=${config.fftSize}, bins=${bufferLength}`,
       );
+      console.log(`✅ Data array recreated: length=${dataArrayRef.current.length}`);
 
       // Reconnect source if it exists
       if (sourceRef.current && audioContextRef.current) {
@@ -238,12 +239,19 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
     }
   }, []);
 
-  const getFrequencyData = useCallback((): Uint8Array | null => {
+  const getFrequencyData = (): Uint8Array | null => {
     if (!analyserRef.current || !dataArrayRef.current) return null;
+
+    // Debug: Log array size occasionally
+    if (Math.random() < 0.001) {
+      console.log(
+        `📊 getFrequencyData: dataArray.length=${dataArrayRef.current.length}, analyser.fftSize=${analyserRef.current.fftSize}`,
+      );
+    }
 
     analyserRef.current.getByteFrequencyData(dataArrayRef.current);
     return dataArrayRef.current;
-  }, []);
+  };
 
   return {
     loadTrack,

@@ -18,9 +18,9 @@ interface UseAudioVisualizerConfig {
 
 export function useAudioVisualizer(
   config: UseAudioVisualizerConfig,
+  audioAnalyser: ReturnType<typeof useAudioAnalyser>,
 ): AudioVisualizerController {
   const engine = useAnimationEngine();
-  const audioAnalyser = useAudioAnalyser();
   const controllerRef = useRef<AudioVisualizerController | null>(null);
 
   if (!controllerRef.current) {

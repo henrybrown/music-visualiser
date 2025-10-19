@@ -206,10 +206,32 @@ export function createAudioVisualizerController(
       const oldBarCount = config.barCount;
       config = { ...config, ...newConfig };
 
-      // If barCount changed, resize the cache array
+      // If barCount changed, force complete reset
       if (newConfig.barCount !== undefined && newConfig.barCount !== oldBarCount) {
-        lastBarLevels = new Array(config.barCount).fill(0);
         console.log(`📊 Bar count changed: ${oldBarCount} → ${config.barCount}`);
+
+        // Reset cache
+        lastBarLevels = new Array(config.barCount).fill(0);
+
+        // If reducing bar count, clear removed bars
+        if (config.barCount < oldBarCount) {
+          for (let i = config.barCount; i < oldBarCount; i++) {
+            engine.updateEntityContext(`bar-${i}`, {
+              audioLevel: 0,
+              glowLevel: 0,
+            });
+          }
+        }
+
+        // Reset all active bars to baseline
+        for (let i = 0; i < config.barCount; i++) {
+          engine.updateEntityContext(`bar-${i}`, {
+            audioLevel: BASELINE,
+            glowLevel: 0,
+          });
+        }
+
+        console.log(`✅ All ${config.barCount} bars reset to baseline`);
       }
     },
 

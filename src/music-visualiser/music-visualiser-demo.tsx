@@ -63,14 +63,17 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const visualizerWrapperRef = useRef<HTMLDivElement | null>(null);
   const [visualizerWidth, setVisualizerWidth] = useState(800);
 
-  const visualizer = useAudioVisualizer({
-    barCount: BAR_COUNT,
-    audioRefreshRate,
-    changeThreshold,
-    springMode,
-    frequencyRanges: activeFrequencyRanges,
-    fftSize: scaledFftSize,
-  });
+  const visualizer = useAudioVisualizer(
+    {
+      barCount: BAR_COUNT,
+      audioRefreshRate,
+      changeThreshold,
+      springMode,
+      frequencyRanges: activeFrequencyRanges,
+      fftSize: scaledFftSize,
+    },
+    audioAnalyser,
+  );
 
   const handlePlay = async () => {
     await visualizer.play("/sample_audio_for_animation_demo.wav");
