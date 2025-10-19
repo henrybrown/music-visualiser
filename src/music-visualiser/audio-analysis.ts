@@ -48,34 +48,74 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
   });
 
   const initAudioContext = useCallback((config: AudioAnalyserConfig) => {
-    if (audioContextRef.current && currentConfigRef.current.fftSize === config.fftSize) {
+    // Create audio context if it doesn't exist
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext({ sampleRate: SAMPLE_RATE });
+    }
+
+    // Check if we need to recreate the analyser
+    const needsRecreate =
+      !analyserRef.current || currentConfigRef.current.fftSize !== config.fftSize;
+
+    if (needsRecreate) {
+      console.log(
+        `🔄 Recreating analyser: ${currentConfigRef.current.fftSize} → ${config.fftSize}`,
+      );
+
+      // Disconnect old analyser if it exists
+      if (analyserRef.current) {
+        try {
+          analyserRef.current.disconnect();
+        } catch (e) {
+          // Ignore disconnect errors
+        }
+      }
+
+      // Disconnect source from old analyser
+      if (sourceRef.current) {
+        try {
+          sourceRef.current.disconnect();
+        } catch (e) {
+          // Ignore disconnect errors
+        }
+      }
+
+      // Create new analyser with new FFT size
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = config.fftSize;
+      analyserRef.current.smoothingTimeConstant = config.smoothing;
+      analyserRef.current.minDecibels = config.minDecibels;
+      analyserRef.current.maxDecibels = config.maxDecibels;
+
+      // Recreate data array with correct size
+      const bufferLength = analyserRef.current.frequencyBinCount;
+      dataArrayRef.current = new Uint8Array(bufferLength);
+
+      console.log(
+        `✅ New analyser created: fftSize=${config.fftSize}, bins=${bufferLength}`,
+      );
+
+      // Reconnect source if it exists
+      if (sourceRef.current && audioContextRef.current) {
+        if (eqFiltersRef.current.length > 0) {
+          sourceRef.current.connect(eqFiltersRef.current[0]);
+          for (let i = 0; i < eqFiltersRef.current.length - 1; i++) {
+            eqFiltersRef.current[i].connect(eqFiltersRef.current[i + 1]);
+          }
+          eqFiltersRef.current[eqFiltersRef.current.length - 1].connect(analyserRef.current);
+        } else {
+          sourceRef.current.connect(analyserRef.current);
+        }
+        analyserRef.current.connect(audioContextRef.current.destination);
+      }
+    } else {
+      // Just update parameters without recreating
       if (analyserRef.current) {
         analyserRef.current.smoothingTimeConstant = config.smoothing;
         analyserRef.current.minDecibels = config.minDecibels;
         analyserRef.current.maxDecibels = config.maxDecibels;
       }
-      currentConfigRef.current = config;
-      return;
     }
-
-    if (audioContextRef.current && currentConfigRef.current.fftSize !== config.fftSize) {
-      if (analyserRef.current) {
-        analyserRef.current.disconnect();
-      }
-    }
-
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext({ sampleRate: SAMPLE_RATE });
-    }
-
-    analyserRef.current = audioContextRef.current.createAnalyser();
-    analyserRef.current.fftSize = config.fftSize;
-    analyserRef.current.smoothingTimeConstant = config.smoothing;
-    analyserRef.current.minDecibels = config.minDecibels;
-    analyserRef.current.maxDecibels = config.maxDecibels;
-
-    const bufferLength = analyserRef.current.frequencyBinCount;
-    dataArrayRef.current = new Uint8Array(bufferLength);
 
     currentConfigRef.current = config;
   }, []);

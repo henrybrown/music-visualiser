@@ -108,6 +108,17 @@ export function createAudioVisualizerController(
         );
       }
 
+      if (updateCount === 0) {
+        console.log(`🔍 FFT Debug:
+    config.fftSize: ${config.fftSize}
+    dataArray.length: ${dataArray.length}
+    Expected bins: ${config.fftSize / 2}
+    Sample rate: ${SAMPLE_RATE}
+    Hz per bin: ${SAMPLE_RATE / 2 / (config.fftSize / 2)}
+    First 10 values: ${Array.from(dataArray.slice(0, 10))}
+  `);
+      }
+
       lastAudioUpdate = timestamp;
     }
 

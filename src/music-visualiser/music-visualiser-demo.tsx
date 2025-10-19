@@ -129,47 +129,30 @@ const MusicVisualizerDemoInner: React.FC = () => {
   }, [eqControlNodes, audioAnalyser.updateEQGains]);
 
   const frequencyLabels = useMemo(() => {
-    const targetFrequencies = [20, 100, 500, 1000, 5000, 10000, 20000];
-    const labels = [];
+    const frequencies = [
+      { hz: 20, label: "20Hz" },
+      { hz: 100, label: "100Hz" },
+      { hz: 500, label: "500Hz" },
+      { hz: 1000, label: "1kHz" },
+      { hz: 5000, label: "5kHz" },
+      { hz: 10000, label: "10kHz" },
+      { hz: 20000, label: "20kHz" },
+    ];
 
-    // Account for container padding (1rem = 16px on each side)
-    const containerPadding = 32; // 16px * 2
-    const availableWidth = visualizerWidth - containerPadding;
+    const MIN_FREQ = 20;
+    const MAX_FREQ = 22000;
 
-    // Calculate actual bars width
-    const totalBarsWidth = barWidth * BAR_COUNT + 3 * (BAR_COUNT - 1);
+    return frequencies.map(({ hz, label }) => {
+      // Logarithmic position: log scale from 20Hz to 22kHz
+      const logMin = Math.log10(MIN_FREQ);
+      const logMax = Math.log10(MAX_FREQ);
+      const logHz = Math.log10(hz);
 
-    // Bars are centered via flexbox, calculate offset from container edge
-    const offset = Math.max(0, (availableWidth - totalBarsWidth) / 2) + 16; // +16 for left padding
+      const positionPercent = ((logHz - logMin) / (logMax - logMin)) * 100;
 
-    for (const targetHz of targetFrequencies) {
-      let closestIndex = 0;
-      let minDiff = Infinity;
-
-      for (let i = 0; i < activeFrequencyRanges.length; i++) {
-        const [minHz, maxHz] = activeFrequencyRanges[i];
-        const centerHz = (minHz + maxHz) / 2;
-        const diff = Math.abs(centerHz - targetHz);
-
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestIndex = i;
-        }
-      }
-
-      // Same frequency formatting as EQ
-      const [minHz, maxHz] = activeFrequencyRanges[closestIndex];
-      const avgHz = (minHz + maxHz) / 2;
-      const label = avgHz >= 1000 ? `${(avgHz / 1000).toFixed(1)}kHz` : `${Math.round(avgHz)}Hz`;
-
-      // Calculate position relative to container
-      const xPos = offset + barWidth / 2 + (barWidth + 3) * closestIndex;
-
-      labels.push({ index: closestIndex, label, xPos });
-    }
-
-    return labels;
-  }, [activeFrequencyRanges, barWidth, BAR_COUNT, visualizerWidth]);
+      return { label, positionPercent };
+    });
+  }, []); // Empty deps - completely static!
 
   const handleResetAll = useCallback(() => {
     setSmoothing(SMOOTHING_TIME_CONSTANT);
@@ -205,12 +188,12 @@ const MusicVisualizerDemoInner: React.FC = () => {
         </VisualizerDisplay>
 
         <div className={styles.frequencyLabels}>
-          {frequencyLabels.map(({ index, label, xPos }) => (
+          {frequencyLabels.map(({ label, positionPercent }) => (
             <span
-              key={index}
+              key={label}
               style={{
                 position: "absolute",
-                left: `${xPos}px`,
+                left: `${positionPercent}%`,
                 transform: "translateX(-50%)",
               }}
             >
