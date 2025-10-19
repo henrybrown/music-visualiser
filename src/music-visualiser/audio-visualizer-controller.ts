@@ -157,6 +157,7 @@ export function createAudioVisualizerController(
       lastAudioUpdate = 0;
       lastGlowUpdate = 0;
 
+      // Start at BASELINE when playing begins
       for (let i = 0; i < config.barCount; i++) {
         engine.updateEntityContext(`bar-${i}`, {
           audioLevel: BASELINE,
@@ -190,9 +191,10 @@ export function createAudioVisualizerController(
 
       audioAnalyser.stop();
 
+      // Reset bars to 0 for satisfying "pop" on next play
       for (let i = 0; i < config.barCount; i++) {
         engine.updateEntityContext(`bar-${i}`, {
-          audioLevel: BASELINE,
+          audioLevel: 0,
           glowLevel: 0,
         });
       }
@@ -223,7 +225,7 @@ export function createAudioVisualizerController(
           }
         }
 
-        // Reset all active bars to baseline
+        // Always use BASELINE - only stop() should use 0
         for (let i = 0; i < config.barCount; i++) {
           engine.updateEntityContext(`bar-${i}`, {
             audioLevel: BASELINE,
