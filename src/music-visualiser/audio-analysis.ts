@@ -58,10 +58,6 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
       !analyserRef.current || currentConfigRef.current.fftSize !== config.fftSize;
 
     if (needsRecreate) {
-      console.log(
-        `🔄 Recreating analyser: ${currentConfigRef.current.fftSize} → ${config.fftSize}`,
-      );
-
       // Disconnect old analyser if it exists
       if (analyserRef.current) {
         try {
@@ -90,11 +86,6 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
       // Recreate data array with correct size
       const bufferLength = analyserRef.current.frequencyBinCount;
       dataArrayRef.current = new Uint8Array(bufferLength);
-
-      console.log(
-        `✅ New analyser created: fftSize=${config.fftSize}, bins=${bufferLength}`,
-      );
-      console.log(`✅ Data array recreated: length=${dataArrayRef.current.length}`);
 
       // Reconnect source if it exists
       if (sourceRef.current && audioContextRef.current) {
@@ -241,13 +232,6 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
 
   const getFrequencyData = (): Uint8Array | null => {
     if (!analyserRef.current || !dataArrayRef.current) return null;
-
-    // Debug: Log array size occasionally
-    if (Math.random() < 0.001) {
-      console.log(
-        `📊 getFrequencyData: dataArray.length=${dataArrayRef.current.length}, analyser.fftSize=${analyserRef.current.fftSize}`,
-      );
-    }
 
     analyserRef.current.getByteFrequencyData(dataArrayRef.current);
     return dataArrayRef.current;

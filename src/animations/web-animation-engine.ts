@@ -183,7 +183,6 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
 
     // Auto-restart loop if springs have new targets and loop isn't running
     if (anySpringTargetsChanged && !rafId && springs.size > 0) {
-      console.log(`🔁 Auto-restarting spring loop for entity: ${entityId}`);
       startSpringLoop();
     }
   };
