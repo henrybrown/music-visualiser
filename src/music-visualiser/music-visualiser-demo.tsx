@@ -75,15 +75,20 @@ const MusicVisualizerDemoInner: React.FC = () => {
     audioAnalyser,
   );
 
-  const handlePlay = async () => {
-    await visualizer.play("/sample_audio_for_animation_demo.wav");
-    setIsPlaying(true);
-  };
+  const handlePlay = useCallback(async () => {
+    try {
+      await visualizer.play("/sample_audio_for_animation_demo.wav");
+      setIsPlaying(true);
+    } catch (error) {
+      console.error('Failed to play audio:', error);
+      setIsPlaying(false);
+    }
+  }, [visualizer]);
 
-  const handleStop = () => {
+  const handleStop = useCallback(() => {
     visualizer.stop();
     setIsPlaying(false);
-  };
+  }, [visualizer]);
 
   const handleTrackEnd = useCallback(() => {
     visualizer.stop();
@@ -130,6 +135,23 @@ const MusicVisualizerDemoInner: React.FC = () => {
     const gains = eqControlNodes.map((node) => node.gain);
     audioAnalyser.updateEQGains(gains);
   }, [eqControlNodes, audioAnalyser.updateEQGains]);
+
+  // Add spacebar play/pause keyboard shortcut
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && e.target === document.body) {
+        e.preventDefault();
+        if (isPlaying) {
+          handleStop();
+        } else {
+          handlePlay();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [isPlaying, handlePlay, handleStop]);
 
   const frequencyLabels = useMemo(() => {
     const frequencies = [
@@ -222,6 +244,8 @@ const MusicVisualizerDemoInner: React.FC = () => {
         >
           ⏹ Stop
         </button>
+
+        <span className={styles.keyboardHint}>Press Space to play/pause</span>
 
         <div className={styles.densityToggle}>
           <button

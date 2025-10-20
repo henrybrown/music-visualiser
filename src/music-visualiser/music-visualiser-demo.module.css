@@ -50,6 +50,13 @@
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
+.keyboardHint {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+  margin-left: 1rem;
+}
+
 .button {
   padding: 0.6rem 1.5rem;
   color: #fff;

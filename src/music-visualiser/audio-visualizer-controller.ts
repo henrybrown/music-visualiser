@@ -1,6 +1,11 @@
 import type { WebAnimationEngine } from "../../gameplay/animations";
 import type { SpringConfigKey } from "../../gameplay/animations";
 
+const BASELINE = 0.1;
+const SAMPLE_RATE = 44100;
+const GLOW_UPDATE_RATE_MS = 16;
+const SNAP_TO_ZERO_THRESHOLD = 0.1; // Matches changeThreshold default
+
 export interface VisualizerConfig {
   barCount: number;
   audioRefreshRate: number;
@@ -29,9 +34,18 @@ interface ControllerDependencies {
   initialConfig: VisualizerConfig;
 }
 
-const BASELINE = 0.1;
-const SAMPLE_RATE = 44100;
-
+/**
+ * Calculates the average audio level for a specific frequency band.
+ *
+ * Maps FFT bins to the frequency range and averages their amplitudes.
+ * Uses logarithmic frequency spacing to match human hearing perception.
+ *
+ * @param dataArray - FFT frequency data from Web Audio API (0-255 range)
+ * @param barIndex - Index of the frequency band to analyze
+ * @param frequencyRanges - Array of [minHz, maxHz] tuples defining each band
+ * @param fftSize - FFT size used by the analyser (determines frequency resolution)
+ * @returns Normalized audio level between 0 and 1
+ */
 function calculateAudioLevel(
   dataArray: Uint8Array,
   barIndex: number,
@@ -58,6 +72,19 @@ function calculateAudioLevel(
   return average / 255;
 }
 
+/**
+ * Creates an audio visualizer controller that bridges the Web Audio API
+ * with the spring animation engine.
+ *
+ * Handles:
+ * - Real-time FFT analysis at configurable refresh rates
+ * - Proportional threshold system for adaptive sensitivity
+ * - Glow effect calculations at 60fps
+ * - Dynamic density switching during playback
+ *
+ * @param deps - Dependencies including animation engine and audio analyser
+ * @returns Controller with play/stop/config methods
+ */
 export function createAudioVisualizerController(
   deps: ControllerDependencies,
 ): AudioVisualizerController {
@@ -115,7 +142,7 @@ export function createAudioVisualizerController(
       return;
     }
 
-    if (timestamp - lastGlowUpdate >= 16) {
+    if (timestamp - lastGlowUpdate >= GLOW_UPDATE_RATE_MS) {
       for (let i = 0; i < config.barCount; i++) {
         const glowLevel = calculateAudioLevel(dataArray, i, config.frequencyRanges, config.fftSize);
         engine.updateEntityContext(`bar-${i}`, { glowLevel });
@@ -130,48 +157,75 @@ export function createAudioVisualizerController(
     play: async (trackUrl: string) => {
       if (playing) return;
 
-      lastBarLevels.fill(0);
-      lastAudioUpdate = 0;
-      lastGlowUpdate = 0;
+      try {
+        lastBarLevels.fill(0);
+        lastAudioUpdate = 0;
+        lastGlowUpdate = 0;
 
-      for (let i = 0; i < config.barCount; i++) {
-        engine.updateEntityContext(`bar-${i}`, {
-          audioLevel: BASELINE,
-          glowLevel: 0,
-        });
+        for (let i = 0; i < config.barCount; i++) {
+          engine.updateEntityContext(`bar-${i}`, {
+            audioLevel: BASELINE,
+            glowLevel: 0,
+          });
+        }
+
+        await audioAnalyser.loadTrack(trackUrl);
+
+        rafId = requestAnimationFrame(audioUpdateLoop);
+        glowRafId = requestAnimationFrame(glowUpdateLoop);
+
+        playing = true;
+      } catch (error) {
+        // Reset state on error
+        playing = false;
+        lastBarLevels.fill(0);
+
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        if (glowRafId) {
+          cancelAnimationFrame(glowRafId);
+          glowRafId = null;
+        }
+
+        throw new Error(`Failed to load audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-
-      await audioAnalyser.loadTrack(trackUrl);
-
-      rafId = requestAnimationFrame(audioUpdateLoop);
-      glowRafId = requestAnimationFrame(glowUpdateLoop);
-
-      playing = true;
     },
 
     stop: () => {
       if (!playing) return;
 
-      if (rafId) {
-        cancelAnimationFrame(rafId);
+      try {
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        if (glowRafId) {
+          cancelAnimationFrame(glowRafId);
+          glowRafId = null;
+        }
+
+        audioAnalyser.stop();
+
+        for (let i = 0; i < config.barCount; i++) {
+          engine.updateEntityContext(`bar-${i}`, {
+            audioLevel: 0,
+            glowLevel: 0,
+          });
+        }
+
+        playing = false;
+        lastBarLevels.fill(0);
+      } catch (error) {
+        // Force cleanup even if error occurs
+        playing = false;
+        lastBarLevels.fill(0);
         rafId = null;
-      }
-      if (glowRafId) {
-        cancelAnimationFrame(glowRafId);
         glowRafId = null;
+
+        console.error('Error during stop:', error);
       }
-
-      audioAnalyser.stop();
-
-      for (let i = 0; i < config.barCount; i++) {
-        engine.updateEntityContext(`bar-${i}`, {
-          audioLevel: 0,
-          glowLevel: 0,
-        });
-      }
-
-      playing = false;
-      lastBarLevels.fill(0);
     },
 
     updateConfig: (newConfig: Partial<VisualizerConfig>) => {
@@ -179,14 +233,9 @@ export function createAudioVisualizerController(
       config = { ...config, ...newConfig };
 
       if (newConfig.barCount !== undefined && newConfig.barCount !== oldBarCount) {
-        console.log(`📊 Density change: ${oldBarCount} → ${config.barCount}, playing: ${playing}`);
-
-        // Reset cache for new bar count
         lastBarLevels = new Array(config.barCount).fill(0);
 
-        // Clear removed bars if decreasing
         if (config.barCount < oldBarCount) {
-          console.log(`🧹 Clearing bars ${config.barCount}-${oldBarCount - 1}`);
           for (let i = config.barCount; i < oldBarCount; i++) {
             engine.updateEntityContext(`bar-${i}`, {
               audioLevel: 0,
@@ -195,15 +244,10 @@ export function createAudioVisualizerController(
           }
         }
 
-        // Force update all remaining bars if playing
         if (playing) {
           const dataArray = audioAnalyser.getFrequencyData();
 
           if (dataArray) {
-            console.log(`🔄 Forcing update for bars 0-${config.barCount - 1}`);
-
-            const sampleUpdates: string[] = [];
-
             for (let i = 0; i < config.barCount; i++) {
               const rawLevel = calculateAudioLevel(
                 dataArray,
@@ -211,19 +255,7 @@ export function createAudioVisualizerController(
                 config.frequencyRanges,
                 config.fftSize,
               );
-
-              let mappedLevel: number = BASELINE + rawLevel * (1.0 - BASELINE);
-
-              if (mappedLevel < config.changeThreshold) {
-                mappedLevel = 0;
-              }
-
-              // Log first 5 bars for debugging
-              if (i < 5) {
-                const context = engine.getEntityContext(`bar-${i}`);
-                const oldAudioLevel = context?.audioLevel ?? "none";
-                sampleUpdates.push(`  bar-${i}: ${oldAudioLevel} → ${mappedLevel.toFixed(3)}`);
-              }
+              const mappedLevel = BASELINE + rawLevel * (1.0 - BASELINE);
 
               engine.updateEntityContext(`bar-${i}`, {
                 audioLevel: mappedLevel,
@@ -232,10 +264,6 @@ export function createAudioVisualizerController(
 
               lastBarLevels[i] = mappedLevel;
             }
-
-            console.log("Sample updates:\n" + sampleUpdates.join("\n"));
-          } else {
-            console.warn("⚠️ No audio data available for forced update");
           }
         }
       }

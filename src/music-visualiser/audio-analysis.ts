@@ -1,10 +1,10 @@
 import { useRef, useCallback } from "react";
 
-const FFT_SIZE = 2048;
-const SAMPLE_RATE = 44100;
-const SMOOTHING_TIME_CONSTANT = 0.3;
-const MIN_DECIBELS = -100;
-const MAX_DECIBELS = 0;
+const DEFAULT_FFT_SIZE = 2048;
+const DEFAULT_SAMPLE_RATE = 44100;
+const DEFAULT_SMOOTHING_TIME_CONSTANT = 0.3;
+const DEFAULT_MIN_DECIBELS = -100;
+const DEFAULT_MAX_DECIBELS = 0;
 
 const EQ_BANDS = [
   { freq: 60, Q: 0.7 },
@@ -33,6 +33,17 @@ interface AudioAnalyserReturn {
   initEQFilters: () => void;
 }
 
+/**
+ * React hook that manages Web Audio API analyser node for real-time FFT analysis.
+ *
+ * Provides methods to:
+ * - Load and play audio tracks
+ * - Configure FFT parameters (size, smoothing, dB range)
+ * - Apply 5-band parametric EQ
+ * - Retrieve frequency data for visualization
+ *
+ * @returns Audio analyser interface with load/stop/config methods
+ */
 export function useAudioAnalyser(): AudioAnalyserReturn {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -41,16 +52,16 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const eqFiltersRef = useRef<BiquadFilterNode[]>([]);
   const currentConfigRef = useRef<AudioAnalyserConfig>({
-    fftSize: FFT_SIZE,
-    smoothing: SMOOTHING_TIME_CONSTANT,
-    minDecibels: MIN_DECIBELS,
-    maxDecibels: MAX_DECIBELS,
+    fftSize: DEFAULT_FFT_SIZE,
+    smoothing: DEFAULT_SMOOTHING_TIME_CONSTANT,
+    minDecibels: DEFAULT_MIN_DECIBELS,
+    maxDecibels: DEFAULT_MAX_DECIBELS,
   });
 
   const initAudioContext = useCallback((config: AudioAnalyserConfig) => {
     // Create audio context if it doesn't exist
     if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext({ sampleRate: SAMPLE_RATE });
+      audioContextRef.current = new AudioContext({ sampleRate: DEFAULT_SAMPLE_RATE });
     }
 
     // Check if we need to recreate the analyser
@@ -163,52 +174,58 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
 
   const loadTrack = useCallback(
     async (src: string) => {
-      initAudioContext(currentConfigRef.current);
+      try {
+        initAudioContext(currentConfigRef.current);
 
-      if (audioContextRef.current?.state === "suspended") {
-        await audioContextRef.current.resume();
-      }
-
-      if (audioElementRef.current) {
-        audioElementRef.current.pause();
-        audioElementRef.current.src = "";
-        audioElementRef.current.load();
-        audioElementRef.current = null;
-      }
-
-      const audio = new Audio();
-      audio.src = src;
-      audio.volume = 1.0;
-      audioElementRef.current = audio;
-
-      audio.addEventListener("error", (e) => {
-        console.error("Audio loading error:", e);
-      });
-
-      if (sourceRef.current) {
-        sourceRef.current.disconnect();
-      }
-
-      sourceRef.current = audioContextRef.current!.createMediaElementSource(audio);
-
-      if (eqFiltersRef.current.length > 0) {
-        sourceRef.current.connect(eqFiltersRef.current[0]);
-
-        for (let i = 0; i < eqFiltersRef.current.length - 1; i++) {
-          eqFiltersRef.current[i].connect(eqFiltersRef.current[i + 1]);
+        if (audioContextRef.current?.state === "suspended") {
+          await audioContextRef.current.resume();
         }
 
-        eqFiltersRef.current[eqFiltersRef.current.length - 1].connect(analyserRef.current!);
-      } else {
-        sourceRef.current.connect(analyserRef.current!);
-      }
+        if (audioElementRef.current) {
+          audioElementRef.current.pause();
+          audioElementRef.current.src = "";
+          audioElementRef.current.load();
+          audioElementRef.current = null;
+        }
 
-      analyserRef.current!.connect(audioContextRef.current!.destination);
+        const audio = new Audio();
+        audio.src = src;
+        audio.volume = 1.0;
+        audioElementRef.current = audio;
 
-      try {
+        audio.addEventListener("error", (e) => {
+          const error = audio.error;
+          const errorMessage = error
+            ? `Audio error (code ${error.code}): ${error.message}`
+            : 'Unknown audio loading error';
+          throw new Error(errorMessage);
+        });
+
+        if (sourceRef.current) {
+          sourceRef.current.disconnect();
+        }
+
+        sourceRef.current = audioContextRef.current!.createMediaElementSource(audio);
+
+        if (eqFiltersRef.current.length > 0) {
+          sourceRef.current.connect(eqFiltersRef.current[0]);
+
+          for (let i = 0; i < eqFiltersRef.current.length - 1; i++) {
+            eqFiltersRef.current[i].connect(eqFiltersRef.current[i + 1]);
+          }
+
+          eqFiltersRef.current[eqFiltersRef.current.length - 1].connect(analyserRef.current!);
+        } else {
+          sourceRef.current.connect(analyserRef.current!);
+        }
+
+        analyserRef.current!.connect(audioContextRef.current!.destination);
+
         await audio.play();
       } catch (err) {
-        console.error("Audio playback error:", err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load audio track';
+        console.error('Audio loading error:', errorMessage);
+        throw new Error(errorMessage);
       }
     },
     [initAudioContext],
