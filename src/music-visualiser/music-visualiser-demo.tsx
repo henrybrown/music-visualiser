@@ -191,125 +191,152 @@ const MusicVisualizerDemoInner: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <div ref={visualizerWrapperRef} className={styles.visualizerWrapper}>
-        <VisualizerDisplay
-          barCount={BAR_COUNT}
-          barWidth={barWidth}
-          frequencyRanges={activeFrequencyRanges}
-          springMode={springMode}
-        >
-          {showEQ && (
-            <EQOverlay
-              controlNodes={eqControlNodes}
-              onNodesChange={setEqControlNodes}
-              containerHeight={380}
-              barWidth={barWidth}
-              barCount={BAR_COUNT}
-              frequencyRanges={activeFrequencyRanges}
-              containerWidth={visualizerWidth}
-            />
-          )}
-        </VisualizerDisplay>
-
-        <div className={styles.frequencyLabels}>
-          {frequencyLabels.map(({ label, positionPercent }) => (
-            <span
-              key={label}
-              style={{
-                position: "absolute",
-                left: `${positionPercent}%`,
-                transform: "translateX(-50%)",
-              }}
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className={styles.controls}>
-        <button
-          onClick={handlePlay}
-          disabled={isPlaying}
-          className={`${styles.button} ${styles.buttonPlay} ${isPlaying ? styles.buttonDisabled : ""}`}
-        >
-          ▶ Play
-        </button>
-
-        <button
-          onClick={handleStop}
-          disabled={!isPlaying}
-          className={`${styles.button} ${styles.buttonStop} ${!isPlaying ? styles.buttonDisabled : ""}`}
-        >
-          ⏹ Stop
-        </button>
-
-        <span className={styles.keyboardHint}>Press Space to play/pause</span>
-
-        <div className={styles.densityToggle}>
-          <button
-            onClick={() => setBarDensity(1)}
-            className={`${styles.button} ${styles.buttonDensity} ${barDensity === 1 ? styles.buttonSelected : ""}`}
-          >
-            31
-          </button>
-          <button
-            onClick={() => setBarDensity(2)}
-            className={`${styles.button} ${styles.buttonDensity} ${barDensity === 2 ? styles.buttonSelected : ""}`}
-          >
-            62
-          </button>
-          <button
-            onClick={() => setBarDensity(4)}
-            className={`${styles.button} ${styles.buttonDensity} ${barDensity === 4 ? styles.buttonSelected : ""}`}
-          >
-            124
-          </button>
-        </div>
-
+      <div className={styles.visualizerWrapper}>
+        {/* Eye Toggle - Top Right, Above Visualizer */}
         <button
           onClick={() => setShowEQ(!showEQ)}
-          className={`${styles.button} ${styles.buttonEQ}`}
+          className={`${styles.eyeToggle} ${showEQ ? styles.active : ''}`}
+          title={showEQ ? "Hide EQ" : "Show EQ"}
         >
-          {showEQ ? "Hide" : "Show"} EQ
+          <span className={`${styles.eyeIcon} ${!showEQ ? styles.hidden : ''}`}>👁</span>
         </button>
 
-        <button
-          onClick={() => setShowControls(!showControls)}
-          className={`${styles.button} ${styles.buttonSettings}`}
-        >
-          ⚙️ {showControls ? "Hide" : "Settings"}
-        </button>
+        {/* Visualizer Display */}
+        <div ref={visualizerWrapperRef} className={styles.visualizerContainer}>
+          <VisualizerDisplay
+            barCount={BAR_COUNT}
+            barWidth={barWidth}
+            frequencyRanges={activeFrequencyRanges}
+            springMode={springMode}
+          >
+            {showEQ && (
+              <EQOverlay
+                controlNodes={eqControlNodes}
+                onNodesChange={setEqControlNodes}
+                containerHeight={380}
+                barWidth={barWidth}
+                barCount={BAR_COUNT}
+                frequencyRanges={activeFrequencyRanges}
+                containerWidth={visualizerWidth}
+              />
+            )}
+          </VisualizerDisplay>
 
-        <button
-          onClick={() => {
-            for (let i = 0; i < BAR_COUNT; i++) {
-              engine.updateEntityContext(`bar-${i}`, { audioLevel: Math.random() });
-            }
-          }}
-          className={`${styles.button} ${styles.buttonRandom}`}
-        >
-          🎲
-        </button>
+          {/* Frequency Labels */}
+          <div className={styles.frequencyLabels}>
+            {frequencyLabels.map(({ label, positionPercent }) => (
+              <span
+                key={label}
+                style={{
+                  position: "absolute",
+                  left: `${positionPercent}%`,
+                  transform: "translateX(-50%)",
+                }}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Controls Row: Density | Play/Stop | Dice */}
+        <div className={styles.controlsRow}>
+          {/* Left: Density Toggle */}
+          <div className={styles.controlsLeft}>
+            <div className={styles.densityToggle}>
+              <button
+                onClick={() => setBarDensity(1)}
+                className={`${styles.densityOption} ${barDensity === 1 ? styles.active : ''}`}
+              >
+                31
+              </button>
+              <button
+                onClick={() => setBarDensity(2)}
+                className={`${styles.densityOption} ${barDensity === 2 ? styles.active : ''}`}
+              >
+                62
+              </button>
+              <button
+                onClick={() => setBarDensity(4)}
+                className={`${styles.densityOption} ${barDensity === 4 ? styles.active : ''}`}
+              >
+                124
+              </button>
+            </div>
+          </div>
+
+          {/* Center: Media Controls */}
+          <div className={styles.controlsCenter}>
+            <button
+              onClick={handlePlay}
+              disabled={isPlaying}
+              className={`${styles.controlButton} ${isPlaying ? styles.disabled : ''}`}
+            >
+              ▶
+            </button>
+            <button
+              onClick={handleStop}
+              disabled={!isPlaying}
+              className={`${styles.controlButton} ${!isPlaying ? styles.disabled : ''}`}
+            >
+              ⏹
+            </button>
+          </div>
+
+          {/* Right: Dice Button */}
+          <div className={styles.controlsRight}>
+            <button
+              onClick={() => {
+                for (let i = 0; i < BAR_COUNT; i++) {
+                  engine.updateEntityContext(`bar-${i}`, { audioLevel: Math.random() });
+                }
+              }}
+              className={styles.diceButton}
+            >
+              🎲
+            </button>
+          </div>
+        </div>
       </div>
 
+      {/* Settings Button - Fixed Bottom Right */}
+      <button
+        onClick={() => setShowControls(!showControls)}
+        className={styles.settingsButton}
+      >
+        ⚙️
+      </button>
+
+      {/* Settings Drawer */}
       {showControls && (
-        <ControlPanel
-          smoothing={smoothing}
-          onSmoothingChange={setSmoothing}
-          dbRangeMin={dbRangeMin}
-          dbRangeMax={dbRangeMax}
-          onDbRangeMinChange={setDbRangeMin}
-          onDbRangeMaxChange={setDbRangeMax}
-          audioRefreshRate={audioRefreshRate}
-          onAudioRefreshRateChange={setAudioRefreshRate}
-          springMode={springMode}
-          onSpringModeChange={setSpringMode}
-          changeThreshold={changeThreshold}
-          onChangeThresholdChange={setChangeThreshold}
-          onResetAll={handleResetAll}
-          isPlaying={isPlaying}
-        />
+        <>
+          <div className={styles.settingsOverlay} onClick={() => setShowControls(false)} />
+          <div className={styles.settingsDrawer}>
+            <div className={styles.settingsHeader}>
+              <h2>Settings</h2>
+              <button onClick={() => setShowControls(false)} className={styles.closeButton}>
+                ×
+              </button>
+            </div>
+
+            <ControlPanel
+              smoothing={smoothing}
+              onSmoothingChange={setSmoothing}
+              dbRangeMin={dbRangeMin}
+              dbRangeMax={dbRangeMax}
+              onDbRangeMinChange={setDbRangeMin}
+              onDbRangeMaxChange={setDbRangeMax}
+              audioRefreshRate={audioRefreshRate}
+              onAudioRefreshRateChange={setAudioRefreshRate}
+              springMode={springMode}
+              onSpringModeChange={setSpringMode}
+              changeThreshold={changeThreshold}
+              onChangeThresholdChange={setChangeThreshold}
+              onResetAll={handleResetAll}
+              isPlaying={isPlaying}
+            />
+          </div>
+        </>
       )}
     </div>
   );
