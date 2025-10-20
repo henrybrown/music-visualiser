@@ -208,12 +208,14 @@ export function createAudioVisualizerController(
 
         audioAnalyser.stop();
 
-        for (let i = 0; i < config.barCount; i++) {
-          engine.updateEntityContext(`bar-${i}`, {
-            audioLevel: 0,
-            glowLevel: 0,
-          });
-        }
+        requestAnimationFrame(() => {
+          for (let i = 0; i < config.barCount; i++) {
+            engine.updateEntityContext(`bar-${i}`, {
+              audioLevel: 0,
+              glowLevel: 0,
+            });
+          }
+        });
 
         playing = false;
         lastBarLevels.fill(0);

@@ -22,7 +22,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const [showControls, setShowControls] = useState(false);
   const [showEQ, setShowEQ] = useState(true);
   const [eqControlNodes, setEqControlNodes] = useState<EQControlNode[]>([]);
-  const [audioRefreshRate, setAudioRefreshRate] = useState(2000);
+  const [audioRefreshRate, setAudioRefreshRate] = useState(100);
   const [springMode, setSpringMode] = useState<SpringConfigKey>("extreme");
   const [changeThreshold, setChangeThreshold] = useState(0.1);
 
@@ -183,7 +183,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
     setDbRangeMin(170);
     setDbRangeMax(245);
     setBarDensity(1);
-    setAudioRefreshRate(500);
+    setAudioRefreshRate(100);
     setSpringMode("extreme");
     setChangeThreshold(0.1);
     setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
