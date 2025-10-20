@@ -80,7 +80,6 @@ const MusicVisualizerDemoInner: React.FC = () => {
       await visualizer.play("/sample_audio_for_animation_demo.wav");
       setIsPlaying(true);
     } catch (error) {
-      console.error('Failed to play audio:', error);
       setIsPlaying(false);
     }
   }, [visualizer]);

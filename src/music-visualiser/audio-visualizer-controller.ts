@@ -223,8 +223,6 @@ export function createAudioVisualizerController(
         lastBarLevels.fill(0);
         rafId = null;
         glowRafId = null;
-
-        console.error('Error during stop:', error);
       }
     },
 

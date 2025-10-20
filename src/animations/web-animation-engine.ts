@@ -56,7 +56,7 @@ export interface WebAnimationEngine {
   };
 }
 
-export function createWebAnimationEngine(engineId: string = "default"): WebAnimationEngine {
+export function createWebAnimationEngine(_engineId: string = "default"): WebAnimationEngine {
   const registry = new Map<
     string,
     Map<string, { element: HTMLElement; animations: Record<string, AnimationDefinition> }>
@@ -276,9 +276,6 @@ export function createWebAnimationEngine(engineId: string = "default"): WebAnima
       const entityElements = registry.get(entityId);
 
       if (!entityElements) {
-        console.warn(
-          `[AnimationEngine:${engineId}] No elements registered for entity: ${entityId}`,
-        );
         return;
       }
 

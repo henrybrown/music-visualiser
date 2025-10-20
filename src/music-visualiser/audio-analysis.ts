@@ -193,7 +193,7 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
         audio.volume = 1.0;
         audioElementRef.current = audio;
 
-        audio.addEventListener("error", (e) => {
+        audio.addEventListener("error", () => {
           const error = audio.error;
           const errorMessage = error
             ? `Audio error (code ${error.code}): ${error.message}`
@@ -224,7 +224,6 @@ export function useAudioAnalyser(): AudioAnalyserReturn {
         await audio.play();
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load audio track';
-        console.error('Audio loading error:', errorMessage);
         throw new Error(errorMessage);
       }
     },
