@@ -32,17 +32,6 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const activeFrequencyRanges = useMemo(() => subdivideFrequencyRanges(barDensity), [barDensity]);
   const BAR_COUNT = activeFrequencyRanges.length;
 
-  const barWidth = useMemo(() => {
-    switch (barDensity) {
-      case 1:
-        return 20;
-      case 2:
-        return 10;
-      case 4:
-        return 5;
-    }
-  }, [barDensity]);
-
   const scaledFftSize = useMemo(() => {
     switch (barDensity) {
       case 1:
@@ -62,6 +51,18 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const engine = useAnimationEngine();
   const visualizerWrapperRef = useRef<HTMLDivElement | null>(null);
   const [visualizerWidth, setVisualizerWidth] = useState(800);
+
+  const barWidth = useMemo(() => {
+    const GAP = 3; // Gap between bars in pixels
+    const PADDING = 32; // 1rem on each side = 32px total
+    const availableWidth = visualizerWidth - PADDING;
+    const totalGapWidth = (BAR_COUNT - 1) * GAP;
+    const totalBarWidth = availableWidth - totalGapWidth;
+    const calculatedWidth = totalBarWidth / BAR_COUNT;
+
+    // Ensure minimum bar width of 2px for visibility
+    return Math.max(2, calculatedWidth);
+  }, [visualizerWidth, BAR_COUNT]);
 
   const visualizer = useAudioVisualizer(
     {
@@ -248,19 +249,19 @@ const MusicVisualizerDemoInner: React.FC = () => {
                 onClick={() => setBarDensity(1)}
                 className={`${styles.densityOption} ${barDensity === 1 ? styles.active : ''}`}
               >
-                31
+                32
               </button>
               <button
                 onClick={() => setBarDensity(2)}
                 className={`${styles.densityOption} ${barDensity === 2 ? styles.active : ''}`}
               >
-                62
+                64
               </button>
               <button
                 onClick={() => setBarDensity(4)}
                 className={`${styles.densityOption} ${barDensity === 4 ? styles.active : ''}`}
               >
-                124
+                128
               </button>
             </div>
           </div>
