@@ -108,13 +108,6 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
           entityId,
           clampRange: animDef.clampRange,
         });
-      } else {
-        const animation = element.animate(animDef.keyframes, {
-          ...animDef.options,
-          fill: "forwards",
-        });
-        animation.finish();
-        animations.set(animKey, animation);
       }
     });
   };
@@ -296,27 +289,24 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
           // Springs don't use playTransitions - they use updateSpringTargets
           // This is here for compatibility but does nothing
         } else {
-          const animation = animations.get(animKey);
-          if (!animation) return;
+          const element = entityElements.get(elementId)?.element;
+          if (!element) return;
 
           const staggerDelay = index * 50;
-
           const options: KeyframeAnimationOptions = {
             ...animDef.options,
             delay: (animDef.options?.delay ?? 0) + staggerDelay,
           };
 
-          const effect = animation.effect as KeyframeEffect;
+          // Create fresh animation
+          const animation = element.animate(animDef.keyframes, options);
 
-          animation.commitStyles();
-          effect.setKeyframes(animDef.keyframes);
-          effect.updateTiming(options as OptionalEffectTiming);
-          animation.cancel();
-          animation.play();
-
-          const animationPromise: Promise<void> = animation.finished.then(
-            () => {},
-            () => {},
+          const animationPromise = animation.finished.then(
+            () => {
+              animation.commitStyles();
+              animation.cancel();
+            },
+            () => animation.cancel(),
           );
 
           promises.push(animationPromise);
