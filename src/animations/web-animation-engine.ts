@@ -303,7 +303,9 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
 
           const animationPromise = animation.finished.then(
             () => {
-              animation.commitStyles();
+              if (element.isConnected) {
+                animation.commitStyles();
+              }
               animation.cancel();
             },
             () => animation.cancel(),
