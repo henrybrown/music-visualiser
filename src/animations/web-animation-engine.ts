@@ -263,16 +263,20 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
     transitions: Map<string, AnimationTransition>,
     getIndex?: (entityId: string) => number,
   ): Promise<void> => {
+    console.log('[AnimEngine] playTransitions called with', transitions.size, 'transitions');
+
     const promises: Promise<void>[] = [];
 
     transitions.forEach((transition, entityId) => {
       const entityElements = registry.get(entityId);
 
       if (!entityElements) {
+        console.warn('[AnimEngine] No elements registered for entity:', entityId);
         return;
       }
 
       const index = getIndex?.(entityId) ?? 0;
+      console.log('[AnimEngine] Processing entity:', entityId, 'index:', index, 'event:', transition.event);
 
       entityElements.forEach(({ animations: animationDefs }, elementId) => {
         const animDefOrFn = animationDefs[transition.event];
@@ -290,7 +294,10 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
           // This is here for compatibility but does nothing
         } else {
           const element = entityElements.get(elementId)?.element;
-          if (!element) return;
+          if (!element) {
+            console.warn('[AnimEngine] Element not found:', elementId, 'for entity:', entityId);
+            return;
+          }
 
           const staggerDelay = index * 50;
           const options: KeyframeAnimationOptions = {
@@ -298,17 +305,26 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
             delay: (animDef.options?.delay ?? 0) + staggerDelay,
           };
 
+          console.log('[AnimEngine] Starting animation:', animKey, 'delay:', options.delay, 'duration:', options.duration);
+
           // Create fresh animation
           const animation = element.animate(animDef.keyframes, options);
 
           const animationPromise = animation.finished.then(
             () => {
+              console.log('[AnimEngine] Animation finished:', animKey);
               if (element.isConnected) {
                 animation.commitStyles();
+                console.log('[AnimEngine] Styles committed:', animKey);
+              } else {
+                console.warn('[AnimEngine] Element disconnected, skipping commit:', animKey);
               }
               animation.cancel();
             },
-            () => animation.cancel(),
+            (err) => {
+              console.log('[AnimEngine] Animation cancelled/rejected:', animKey, err);
+              animation.cancel();
+            },
           );
 
           promises.push(animationPromise);
@@ -316,10 +332,13 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
       });
     });
 
+    console.log('[AnimEngine] Waiting for', promises.length, 'animations to complete');
     await Promise.all(promises);
+    console.log('[AnimEngine] All animations complete');
   };
 
   const cancelAll = () => {
+    console.log('[AnimEngine] cancelAll called - cancelling', animations.size, 'animations and', springs.size, 'springs');
     animations.forEach((anim) => anim.cancel());
     animations.clear();
 
