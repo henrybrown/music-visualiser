@@ -14,5 +14,5 @@ export {
 export { createSpring, SPRING_PRESETS, SPRING_CONFIGS, VISUALISER_MODES } from './spring-animation';
 export type { Spring, SpringConfig, SpringConfigKey, VisualiserMode } from './spring-animation';
 export { useAnimationRegistration } from './use-animation-registration';
+export type { AnimationRegistrationOptions } from './use-animation-registration';
 export { AnimationEngineProvider, useAnimationEngine } from './animation-engine-context';
-export { usePendingAnimations } from './use-pending-animations';
