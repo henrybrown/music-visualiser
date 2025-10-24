@@ -3,9 +3,8 @@ import type { AnimationDefinition } from './animation-types';
 import { useAnimationEngine, type EntityContext } from './animation-engine-context';
 
 export interface AnimationRegistrationOptions {
-  autoAnimate?: boolean;
-  pendingTransition?: { event: string; toState: unknown } | null;
-  onComplete?: (entityId: string) => void;
+  entryTransition?: string;  // Event to play on mount
+  onComplete?: (event: string) => void;  // Callback with event name
 }
 
 export function useAnimationRegistration(
@@ -42,30 +41,33 @@ export function useAnimationRegistration(
     [entityId, engine],
   );
 
-  // Auto-animate when pendingTransition changes
+  // Entry animation on mount (after refs register)
   useLayoutEffect(() => {
-    const autoAnimate = options?.autoAnimate ?? true;
-    const pendingTransition = options?.pendingTransition;
-    const onComplete = options?.onComplete;
+    if (!options?.entryTransition) return;
 
-    if (!autoAnimate || !pendingTransition) {
-      return;
-    }
-
-    // Play the transition for this single entity
     const transitionsMap = new Map();
     transitionsMap.set(entityId, {
       entityId,
-      event: pendingTransition.event,
+      event: options.entryTransition,
     });
 
-    engine
-      .playTransitions(transitionsMap)
-      .then(() => {
-        // Call completion callback with entityId
-        onComplete?.(entityId);
-      });
-  }, [engine, entityId, options?.autoAnimate, options?.pendingTransition, options?.onComplete]);
+    engine.playTransitions(transitionsMap).then(() => {
+      options.onComplete?.(options.entryTransition!);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only on mount
+
+  // Imperative trigger function
+  const triggerTransition = useCallback(async (event: string) => {
+    const transitionsMap = new Map();
+    transitionsMap.set(entityId, {
+      entityId,
+      event,
+    });
+
+    await engine.playTransitions(transitionsMap);
+    options?.onComplete?.(event);
+  }, [entityId, engine, options]);
 
   useEffect(() => {
     return () => {
@@ -75,5 +77,6 @@ export function useAnimationRegistration(
 
   return {
     createAnimationRef,
+    triggerTransition,
   };
 }
