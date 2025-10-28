@@ -1,10 +1,10 @@
-import { useCallback, useRef, useEffect, useLayoutEffect } from 'react';
-import type { AnimationDefinition } from './animation-types';
-import { useAnimationEngine, type EntityContext } from './animation-engine-context';
+import { useCallback, useRef, useEffect, useLayoutEffect, useState } from "react";
+import type { AnimationDefinition } from "./animation-types";
+import { useAnimationEngine, type EntityContext } from "./animation-engine-context";
 
 export interface AnimationRegistrationOptions {
-  entryTransition?: string;  // Event to play on mount
-  onComplete?: (event: string) => void;  // Callback with event name
+  entryTransition?: string; // Event to play on mount
+  onComplete?: (event: string) => void; // Callback with event name
 }
 
 export function useAnimationRegistration(
@@ -14,6 +14,8 @@ export function useAnimationRegistration(
 ) {
   const engine = useAnimationEngine();
   const refCallbacks = useRef<Map<string, (el: HTMLElement | null) => void>>(new Map());
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [currentAnimation, setCurrentAnimation] = useState<string | null>(null);
 
   useEffect(() => {
     if (entityContext) {
@@ -51,6 +53,12 @@ export function useAnimationRegistration(
       event: options.entryTransition,
     });
 
+    console.log("[Entity context]", entityContext);
+
+    if (entityContext) {
+      engine.updateEntityContext(entityId, entityContext);
+    }
+
     engine.playTransitions(transitionsMap).then(() => {
       options.onComplete?.(options.entryTransition!);
     });
@@ -58,16 +66,25 @@ export function useAnimationRegistration(
   }, []); // Empty deps - only on mount
 
   // Imperative trigger function
-  const triggerTransition = useCallback(async (event: string) => {
-    const transitionsMap = new Map();
-    transitionsMap.set(entityId, {
-      entityId,
-      event,
-    });
+  const triggerTransition = useCallback(
+    async (event: string) => {
+      setIsAnimating(true);
+      setCurrentAnimation(event);
 
-    await engine.playTransitions(transitionsMap);
-    options?.onComplete?.(event);
-  }, [entityId, engine, options]);
+      const transitionsMap = new Map();
+      transitionsMap.set(entityId, {
+        entityId,
+        event,
+      });
+
+      await engine.playTransitions(transitionsMap);
+
+      setIsAnimating(false);
+      setCurrentAnimation(null);
+      options?.onComplete?.(event);
+    },
+    [entityId, engine, options],
+  );
 
   useEffect(() => {
     return () => {
@@ -78,5 +95,7 @@ export function useAnimationRegistration(
   return {
     createAnimationRef,
     triggerTransition,
+    isAnimating,
+    currentAnimation,
   };
 }
