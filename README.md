@@ -1,5 +1,7 @@
 # Music Visualiser
 
+https://music-visualiser.hbprojects.app/
+
 Real-time audio frequency visualiser built with React, the Web Audio API, and a custom spring-physics animation engine.
 
 ## Architecture
