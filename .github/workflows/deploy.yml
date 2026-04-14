@@ -2,7 +2,7 @@ name: Deploy Music Visualiser
 
 on:
   push:
-    branches: [master]
+    branches: [main]
 
 jobs:
   deploy:
