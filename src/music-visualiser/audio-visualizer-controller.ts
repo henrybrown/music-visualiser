@@ -1,5 +1,5 @@
-import type { WebAnimationEngine } from "../../gameplay/animations";
-import type { SpringConfigKey } from "../../gameplay/animations";
+import type { WebAnimationEngine } from "../animations";
+import type { SpringConfigKey } from "../animations";
 
 const BASELINE = 0.1;
 const SAMPLE_RATE = 44100;

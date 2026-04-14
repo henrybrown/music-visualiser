@@ -1,9 +1,9 @@
 import React, { useMemo } from "react";
-import { useAnimationRegistration } from "../../gameplay/animations/use-animation-registration";
-import type { SpringAnimationDefinition } from "../../gameplay/animations/animation-types";
+import { useAnimationRegistration } from "../animations/use-animation-registration";
+import type { SpringAnimationDefinition } from "../animations/animation-types";
 import demoStyles from "./music-visualiser-demo.module.css";
 import styles from "./visualizer-display.module.css";
-import { SPRING_CONFIGS, type SpringConfigKey } from "../../gameplay/animations";
+import { SPRING_CONFIGS, type SpringConfigKey } from "../animations";
 
 export const FREQUENCY_RANGES = [
   [20, 40],

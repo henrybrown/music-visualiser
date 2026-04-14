@@ -2,13 +2,13 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import {
   AnimationEngineProvider,
   useAnimationEngine,
-} from "../../gameplay/animations/animation-engine-context";
+} from "../animations/animation-engine-context";
 import { VisualizerDisplay, subdivideFrequencyRanges } from "./visualizer-display";
 import { ControlPanel, SMOOTHING_TIME_CONSTANT } from "./control-panel";
 import EQOverlay, { getDefaultEQNodes, type EQControlNode } from "./equalizer-components";
 import { useAudioAnalyser } from "./audio-analysis";
 import { useAudioVisualizer } from "./use-audio-visualizer";
-import type { SpringConfigKey } from "../../gameplay/animations";
+import type { SpringConfigKey } from "../animations";
 import styles from "./music-visualiser-demo.module.css";
 
 const FFT_SIZE = 2048;

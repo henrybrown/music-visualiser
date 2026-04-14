@@ -1,5 +1,5 @@
 import React from "react";
-import { SPRING_CONFIGS } from "../../gameplay/animations";
+import { SPRING_CONFIGS } from "../animations";
 import styles from "./control-panel.module.css";
 
 export const SMOOTHING_TIME_CONSTANT = 0.8;

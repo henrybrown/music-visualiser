@@ -1,5 +1,5 @@
 import { useRef, useEffect, useLayoutEffect } from "react";
-import { useAnimationEngine } from "../../gameplay/animations/animation-engine-context";
+import { useAnimationEngine } from "../animations/animation-engine-context";
 import { useAudioAnalyser } from "./audio-analysis";
 import {
   createAudioVisualizerController,
