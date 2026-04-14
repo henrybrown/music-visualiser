@@ -1,30 +1,45 @@
-import { useCallback, useRef, useEffect, useLayoutEffect, useState } from "react";
-import type { AnimationDefinition } from "./animation-types";
+import { useCallback, useRef, useEffect } from "react";
+import type { SpringAnimationDefinition } from "./animation-types";
 import { useAnimationEngine, type EntityContext } from "./animation-engine-context";
 
-export interface AnimationRegistrationOptions {
-  entryTransition?: string; // Event to play on mount
-  onComplete?: (event: string) => void; // Callback with event name
-}
-
+/**
+ * Registers DOM elements with the spring animation engine and manages their lifecycle.
+ *
+ * Each entity (e.g. a visualizer bar) can own multiple animated elements (e.g. the bar
+ * itself and its cap). This hook provides a ref callback factory that automatically
+ * registers elements on mount and unregisters them on unmount.
+ *
+ * @param entityId   - Unique identifier for the animated entity (e.g. "bar-0")
+ * @param entityContext - Optional initial context values forwarded to the engine
+ * @returns An object containing `createAnimationRef` for binding elements
+ */
 export function useAnimationRegistration(
   entityId: string,
   entityContext?: EntityContext,
-  options?: AnimationRegistrationOptions,
 ) {
   const engine = useAnimationEngine();
   const refCallbacks = useRef<Map<string, (el: HTMLElement | null) => void>>(new Map());
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [currentAnimation, setCurrentAnimation] = useState<string | null>(null);
 
+  // Sync external context into the engine whenever it changes
   useEffect(() => {
     if (entityContext) {
       engine.updateEntityContext(entityId, entityContext);
     }
   }, [engine, entityId, entityContext]);
 
+  /**
+   * Creates a stable ref callback for an animated element. The returned callback
+   * registers the element with the engine when React attaches it to the DOM and
+   * unregisters it on removal. Callbacks are cached per `elementId` so the same
+   * ref identity is reused across re-renders, preventing unnecessary unregister/
+   * register cycles.
+   *
+   * @param elementId  - Identifier for this element within the entity (e.g. "bar", "cap")
+   * @param animations - Map of event names to spring animation definitions
+   * @returns A ref callback suitable for a JSX `ref` prop
+   */
   const createAnimationRef = useCallback(
-    (elementId: string, animations: Record<string, AnimationDefinition>) => {
+    (elementId: string, animations: Record<string, SpringAnimationDefinition>) => {
       let callback = refCallbacks.current.get(elementId);
 
       if (!callback) {
@@ -43,59 +58,12 @@ export function useAnimationRegistration(
     [entityId, engine],
   );
 
-  // Entry animation on mount (after refs register)
-  useLayoutEffect(() => {
-    if (!options?.entryTransition) return;
-
-    const transitionsMap = new Map();
-    transitionsMap.set(entityId, {
-      entityId,
-      event: options.entryTransition,
-    });
-
-    console.log("[Entity context]", entityContext);
-
-    if (entityContext) {
-      engine.updateEntityContext(entityId, entityContext);
-    }
-
-    engine.playTransitions(transitionsMap).then(() => {
-      options.onComplete?.(options.entryTransition!);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - only on mount
-
-  // Imperative trigger function
-  const triggerTransition = useCallback(
-    async (event: string) => {
-      setIsAnimating(true);
-      setCurrentAnimation(event);
-
-      const transitionsMap = new Map();
-      transitionsMap.set(entityId, {
-        entityId,
-        event,
-      });
-
-      await engine.playTransitions(transitionsMap);
-
-      setIsAnimating(false);
-      setCurrentAnimation(null);
-      options?.onComplete?.(event);
-    },
-    [entityId, engine, options],
-  );
-
+  // Clear cached callbacks on unmount to avoid stale closures
   useEffect(() => {
     return () => {
       refCallbacks.current.clear();
     };
   }, []);
 
-  return {
-    createAnimationRef,
-    triggerTransition,
-    isAnimating,
-    currentAnimation,
-  };
+  return { createAnimationRef };
 }

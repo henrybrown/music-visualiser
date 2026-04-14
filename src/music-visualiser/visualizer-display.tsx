@@ -71,34 +71,6 @@ export function subdivideFrequencyRanges(
   return subdivided;
 }
 
-export function calculateAudioLevel(
-  dataArray: Uint8Array,
-  barIndex: number,
-  frequencyRanges: readonly (readonly [number, number])[],
-  fftSize: number,
-  sampleRate: number = 44100,
-): number {
-  const hzPerBin = sampleRate / 2 / (fftSize / 2);
-
-  if (barIndex >= frequencyRanges.length) return 0;
-
-  const [minHz, maxHz] = frequencyRanges[barIndex];
-  const startBin = Math.max(1, Math.floor(minHz / hzPerBin));
-  const endBin = Math.min(dataArray.length, Math.floor(maxHz / hzPerBin));
-
-  let sum = 0;
-  let count = 0;
-
-  for (let i = startBin; i < endBin; i++) {
-    sum += dataArray[i];
-    count++;
-  }
-
-  const average = count > 0 ? sum / count : 0;
-
-  return average / 255;
-}
-
 export const EqualizerBar: React.FC<{
   barId: string;
   frequencyRanges: readonly (readonly [number, number])[];
@@ -114,7 +86,7 @@ export const EqualizerBar: React.FC<{
         options: { duration: 1000 },
         trackContext: (context) => {
           const audioLevel = (context.audioLevel as number) ?? 0.1;
-          // Map audioLevel to spring progress: 0.1 → 0.1, 1.0 → 1.0
+          // Map audioLevel to spring progress: 0.1 -> 0.1, 1.0 -> 1.0
           return audioLevel;
         },
         clampRange: { min: 0 },

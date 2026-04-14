@@ -1,11 +1,11 @@
-import type { AnimationDefinition, AnimationTransition } from "./animation-types";
-import { isSpringAnimation } from "./animation-types";
-import { createSpring, type Spring, SPRING_PRESETS } from "./spring-animation";
+import type { SpringAnimationDefinition } from "./animation-types";
+import { createSpring, type Spring } from "./spring-animation";
 
 export interface EntityContext {
   [key: string]: unknown;
 }
 
+/** Internal state for a single spring-driven animation bound to a DOM element. */
 interface SpringData {
   spring: Spring;
   animation: Animation;
@@ -22,14 +22,9 @@ export interface WebAnimationEngine {
     entityId: string,
     elementId: string,
     element: HTMLElement,
-    animations: Record<string, AnimationDefinition>,
+    animations: Record<string, SpringAnimationDefinition>,
   ) => void;
   unregister: (entityId: string, elementId: string) => void;
-  playTransitions: (
-    transitions: Map<string, AnimationTransition>,
-    getIndex?: (entityId: string) => number,
-  ) => Promise<void>;
-  updateSpringTargets: (targets: Map<string, number>) => void;
   startSpringLoop: () => void;
   stopSpringLoop: () => void;
   cancelAll: () => void;
@@ -42,91 +37,103 @@ export interface WebAnimationEngine {
   getEngineInfo: () => {
     registry: Map<
       string,
-      Map<string, { element: HTMLElement; animations: Record<string, AnimationDefinition> }>
+      Map<string, { element: HTMLElement; animations: Record<string, SpringAnimationDefinition> }>
     >;
-    runningAnimations: Map<string, Animation>;
     entityContexts: Map<string, EntityContext>;
-  };
-  getStats: () => {
-    registeredEntities: number;
-    registeredElements: number;
-    runningAnimations: number;
-    runningSprings: number;
-    contextSize: number;
   };
 }
 
+/**
+ * Spring-physics animation engine that uses paused Web Animations API
+ * animations as GPU-composited interpolation targets.
+ *
+ * Instead of writing element.style.transform on every frame (which forces
+ * layout + paint on the CPU), the engine creates a WAAPI animation on each
+ * element and immediately pauses it. The spring physics run in a single RAF
+ * loop and write each spring's progress into animation.currentTime, letting
+ * the browser's compositor thread handle rendering on the GPU.
+ *
+ * Flow:
+ *   context update -> spring retargets -> RAF ticks physics -> animation.currentTime = progress * duration -> GPU composites
+ *
+ * The RAF loop is self-managing: starts when any spring target changes,
+ * stops when all springs settle. CPU usage is zero between activity bursts.
+ */
 export function createWebAnimationEngine(_engineId: string = "default"): WebAnimationEngine {
+  /** Two-level map: entityId -> elementId -> { element, animations } */
   const registry = new Map<
     string,
-    Map<string, { element: HTMLElement; animations: Record<string, AnimationDefinition> }>
+    Map<string, { element: HTMLElement; animations: Record<string, SpringAnimationDefinition> }>
   >();
-  const animations = new Map<string, Animation>();
+
+  /** Flat map of all active springs, keyed as "entityId-elementId-eventName" */
   const springs = new Map<string, SpringData>();
+
+  /** Arbitrary key/value context per entity, consumed by spring trackContext functions */
   const entityContexts = new Map<string, EntityContext>();
 
   let rafId: number | null = null;
   let lastTime = 0;
 
+  /**
+   * Registers a DOM element and creates paused WAAPI animations as GPU
+   * interpolation targets. Each animation is immediately paused -- the
+   * spring physics simulation scrubs it via currentTime rather than
+   * letting it play. This gives us GPU-composited transforms driven
+   * by custom physics.
+   */
   const register = (
     entityId: string,
     elementId: string,
     element: HTMLElement,
-    animationDefs: Record<string, AnimationDefinition>,
+    animationDefs: Record<string, SpringAnimationDefinition>,
   ) => {
     if (!registry.has(entityId)) {
       registry.set(entityId, new Map());
     }
     registry.get(entityId)!.set(elementId, { element, animations: animationDefs });
 
-    Object.entries(animationDefs).forEach(([eventName, animDefOrFn]) => {
+    Object.entries(animationDefs).forEach(([eventName, animDef]) => {
       const animKey = `${entityId}-${elementId}-${eventName}`;
-      const context = entityContexts.get(entityId) || {};
-      const animDef = typeof animDefOrFn === "function" ? animDefOrFn(context) : animDefOrFn;
 
-      if (isSpringAnimation(animDef)) {
-        const initialValue = animDef.initialValue ?? 0;
-        const spring = createSpring(
-          initialValue,
-          animDef.springConfig || SPRING_PRESETS.gentle,
-          animDef.cushion,
-        );
+      const initialValue = animDef.initialValue ?? 0;
+      const spring = createSpring(
+        initialValue,
+        animDef.springConfig,
+        animDef.cushion,
+      );
 
-        const animation = element.animate(animDef.keyframes, {
-          ...animDef.options,
-          duration: animDef.options?.duration ?? 1000,
-          fill: "forwards",
-        });
+      // Create a paused animation as a GPU interpolation target.
+      // We never play it -- the spring writes to currentTime directly.
+      const animation = element.animate(animDef.keyframes, {
+        ...animDef.options,
+        duration: animDef.options?.duration ?? 1000,
+        fill: "forwards",
+      });
+      animation.pause();
 
-        animation.pause();
-
-        springs.set(animKey, {
-          spring,
-          animation,
-          duration: animation.effect!.getTiming().duration as number,
-          trackContext: animDef.trackContext,
-          entityId,
-          clampRange: animDef.clampRange,
-        });
-      }
+      springs.set(animKey, {
+        spring,
+        animation,
+        duration: animation.effect!.getTiming().duration as number,
+        trackContext: animDef.trackContext,
+        entityId,
+        clampRange: animDef.clampRange,
+      });
     });
   };
 
+  /**
+   * Removes an element, cancelling its paused animations and cleaning up
+   * associated springs. If this was the entity's last element, the entity
+   * context is also removed.
+   */
   const unregister = (entityId: string, elementId: string) => {
     const entityRegistry = registry.get(entityId);
     if (!entityRegistry) return;
 
     const animKeyPrefix = `${entityId}-${elementId}`;
     const keysToDelete: string[] = [];
-
-    animations.forEach((animation, key) => {
-      if (key.startsWith(animKeyPrefix)) {
-        try {
-          animation.cancel();
-        } catch (e) {}
-        keysToDelete.push(key);
-      }
-    });
 
     springs.forEach((springData, key) => {
       if (key.startsWith(animKeyPrefix)) {
@@ -138,7 +145,6 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
     });
 
     keysToDelete.forEach((key) => {
-      animations.delete(key);
       springs.delete(key);
     });
 
@@ -149,6 +155,15 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
     }
   };
 
+  /**
+   * Merges new context values for an entity and propagates them to springs.
+   *
+   * Each spring can declare a `trackContext` function that derives a target
+   * value from the entity's context (e.g. mapping an audio level to a
+   * normalised 0–1 range). When the derived target differs from the spring's
+   * current target, the spring is retargeted and the RAF loop is restarted
+   * if it was idle.
+   */
   const updateEntityContext = (
     entityId: string,
     context: EntityContext,
@@ -160,13 +175,11 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
 
     let anySpringTargetsChanged = false;
 
-    // Update spring targets immediately when context changes
     springs.forEach((springData) => {
       if (springData.entityId === entityId && springData.trackContext) {
         const targetValue = springData.trackContext(newContext);
-        const currentTarget = springData.spring.getTarget?.() ?? springData.spring.getCurrent();
+        const currentTarget = springData.spring.getTarget();
 
-        // Only set target if it actually changed
         if (Math.abs(targetValue - currentTarget) > 0.001) {
           springData.spring.setTarget(targetValue);
           anySpringTargetsChanged = true;
@@ -174,7 +187,7 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
       }
     });
 
-    // Auto-restart loop if springs have new targets and loop isn't running
+    // Auto-start the loop if springs have new targets and the loop is idle
     if (anySpringTargetsChanged && !rafId && springs.size > 0) {
       startSpringLoop();
     }
@@ -184,50 +197,41 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
     return entityContexts.get(entityId);
   };
 
-  const updateSpringTargets = (targets: Map<string, number>) => {
-    targets.forEach((target, key) => {
-      const springData = springs.get(key);
-      if (springData) {
-        springData.spring.setTarget(target);
-      }
-    });
-  };
-
+  /**
+   * Starts the RAF loop that ticks all active springs each frame.
+   *
+   * Per frame:
+   *  1. Compute delta time (capped at 100ms to survive tab-switches)
+   *  2. Tick each spring's physics simulation
+   *  3. Write clamped progress into the paused animation's currentTime
+   *  4. Stop the loop when every spring has settled (zero CPU at rest)
+   */
   const startSpringLoop = () => {
     if (rafId) return;
 
     const tick = (currentTime: number) => {
-      // Initialize lastTime on first frame
       if (!lastTime) lastTime = currentTime;
 
-      // Calculate time elapsed since last frame (capped at 100ms to prevent physics explosions)
       const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1);
       lastTime = currentTime;
 
-      // Track whether ANY spring is still moving
-      // If all springs are at rest, we can stop the RAF loop to save CPU
       let anyActive = false;
 
       springs.forEach((springData) => {
         const { spring, animation, duration, clampRange } = springData;
 
-        // Only tick springs that are moving
-        // Springs at rest don't need physics calculations or DOM updates
         if (!spring.isAtRest()) {
           anyActive = true;
 
-          // Run physics simulation: calculates forces, velocity, and new position
           const progress = spring.tick(deltaTime);
-
-          // Apply clamping if configured, otherwise let spring overshoot naturally
           const clamped = clampRange
             ? Math.max(clampRange.min || -Infinity, Math.min(clampRange.max || +Infinity, progress))
             : progress;
 
           animation.currentTime = clamped * duration;
         } else {
-          // Spring is at rest - snap to exact target for pixel-perfect settling
-          const target = spring.getTarget?.() ?? spring.getCurrent();
+          // Snap to exact target for pixel-perfect settling
+          const target = spring.getTarget();
           const clamped = clampRange
             ? Math.max(clampRange.min || -Infinity, Math.min(clampRange.max || +Infinity, target))
             : target;
@@ -235,19 +239,14 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
         }
       });
 
-      // Decide whether to continue RAF loop
-      // Continue only if springs exist AND at least one is moving
-      // Otherwise stop the loop to conserve CPU until next context update
       if (anyActive && springs.size > 0) {
         rafId = requestAnimationFrame(tick);
       } else {
-        // All springs settled - stop RAF loop
         rafId = null;
         lastTime = 0;
       }
     };
 
-    // start the RAF loop - schedules the first frame
     rafId = requestAnimationFrame(tick);
   };
 
@@ -259,120 +258,26 @@ export function createWebAnimationEngine(_engineId: string = "default"): WebAnim
     }
   };
 
-  const playTransitions = async (
-    transitions: Map<string, AnimationTransition>,
-    getIndex?: (entityId: string) => number,
-  ): Promise<void> => {
-    console.log('[AnimEngine] playTransitions called with', transitions.size, 'transitions');
-
-    const promises: Promise<void>[] = [];
-
-    transitions.forEach((transition, entityId) => {
-      const entityElements = registry.get(entityId);
-
-      if (!entityElements) {
-        console.warn('[AnimEngine] No elements registered for entity:', entityId);
-        return;
-      }
-
-      const index = getIndex?.(entityId) ?? 0;
-      console.log('[AnimEngine] Processing entity:', entityId, 'index:', index, 'event:', transition.event);
-
-      entityElements.forEach(({ animations: animationDefs }, elementId) => {
-        const animDefOrFn = animationDefs[transition.event];
-        if (!animDefOrFn) {
-          return;
-        }
-
-        const context = entityContexts.get(entityId) || {};
-        const animDef = typeof animDefOrFn === "function" ? animDefOrFn(context) : animDefOrFn;
-
-        const animKey = `${entityId}-${elementId}-${transition.event}`;
-
-        if (isSpringAnimation(animDef)) {
-          // Springs don't use playTransitions - they use updateSpringTargets
-          // This is here for compatibility but does nothing
-        } else {
-          const element = entityElements.get(elementId)?.element;
-          if (!element) {
-            console.warn('[AnimEngine] Element not found:', elementId, 'for entity:', entityId);
-            return;
-          }
-
-          const staggerDelay = index * 50;
-          const options: KeyframeAnimationOptions = {
-            ...animDef.options,
-            delay: (animDef.options?.delay ?? 0) + staggerDelay,
-          };
-
-          console.log('[AnimEngine] Starting animation:', animKey, 'delay:', options.delay, 'duration:', options.duration);
-
-          // Create fresh animation
-          const animation = element.animate(animDef.keyframes, options);
-
-          const animationPromise = animation.finished.then(
-            () => {
-              console.log('[AnimEngine] Animation finished:', animKey);
-              if (element.isConnected) {
-                animation.commitStyles();
-                console.log('[AnimEngine] Styles committed:', animKey);
-              } else {
-                console.warn('[AnimEngine] Element disconnected, skipping commit:', animKey);
-              }
-              animation.cancel();
-            },
-            (err) => {
-              console.log('[AnimEngine] Animation cancelled/rejected:', animKey, err);
-              animation.cancel();
-            },
-          );
-
-          promises.push(animationPromise);
-        }
-      });
-    });
-
-    console.log('[AnimEngine] Waiting for', promises.length, 'animations to complete');
-    await Promise.all(promises);
-    console.log('[AnimEngine] All animations complete');
-  };
-
+  /** Cancels all paused animations, clears springs, and stops the RAF loop. */
   const cancelAll = () => {
-    console.log('[AnimEngine] cancelAll called - cancelling', animations.size, 'animations and', springs.size, 'springs');
-    animations.forEach((anim) => anim.cancel());
-    animations.clear();
-
     springs.forEach((springData) => springData.animation.cancel());
     springs.clear();
-
     stopSpringLoop();
   };
 
   const getEngineInfo = () => ({
     registry: new Map(registry),
-    runningAnimations: new Map(animations),
     entityContexts: new Map(entityContexts),
-  });
-
-  const getStats = () => ({
-    registeredEntities: registry.size,
-    registeredElements: Array.from(registry.values()).reduce((sum, map) => sum + map.size, 0),
-    runningAnimations: animations.size,
-    runningSprings: springs.size,
-    contextSize: entityContexts.size,
   });
 
   return {
     register,
     unregister,
-    playTransitions,
-    updateSpringTargets,
     startSpringLoop,
     stopSpringLoop,
     cancelAll,
     updateEntityContext,
     getEntityContext,
     getEngineInfo,
-    getStats,
   };
 }
