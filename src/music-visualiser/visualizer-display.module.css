@@ -7,17 +7,6 @@
   isolation: isolate;
 }
 
-.glow {
-  position: absolute;
-  bottom: 0;
-  height: 30px;
-  transform-origin: bottom;
-  filter: blur(10px);
-  will-change: transform;
-  transform: translateZ(0);
-  isolation: isolate;
-}
-
 .bar {
   position: absolute;
   bottom: 0;

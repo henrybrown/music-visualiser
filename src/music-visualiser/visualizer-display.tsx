@@ -5,6 +5,20 @@ import demoStyles from "./music-visualiser-demo.module.css";
 import styles from "./visualizer-display.module.css";
 import { SPRING_CONFIGS, type SpringConfigKey } from "../animations";
 
+export type ColorTheme = "cool" | "warm" | "rainbow";
+
+export interface ThemeConfig {
+  hueStart: number;
+  hueEnd: number;
+  saturation: number;
+}
+
+export const COLOR_THEMES: Record<ColorTheme, ThemeConfig> = {
+  cool:    { hueStart: 210, hueEnd: 90,  saturation: 55 },
+  warm:    { hueStart: 0,   hueEnd: 45,  saturation: 70 },
+  rainbow: { hueStart: 0,   hueEnd: 300, saturation: 65 },
+};
+
 export const FREQUENCY_RANGES = [
   [20, 40],
   [40, 60],
@@ -90,7 +104,8 @@ export const EqualizerBar: React.FC<{
   frequencyRanges: readonly (readonly [number, number])[];
   barWidth: number;
   springMode: SpringConfigKey;
-}> = ({ barId, frequencyRanges, barWidth, springMode }) => {
+  theme: ThemeConfig;
+}> = ({ barId, frequencyRanges, barWidth, springMode, theme }) => {
   const animations: Record<string, SpringAnimationDefinition> = useMemo(
     () => ({
       updateHeight: {
@@ -129,32 +144,16 @@ export const EqualizerBar: React.FC<{
     [springMode],
   );
 
-  const glowAnimations: Record<string, SpringAnimationDefinition> = useMemo(
-    () => ({
-      updateHeight: {
-        keyframes: [{ transform: "scaleY(1)" }, { transform: "scaleY(10)" }],
-        springConfig: {
-          stiffness: 180,
-          damping: 10,
-          mass: 0.6,
-        },
-        options: { duration: 1000 },
-        trackContext: (context) => (context.glowLevel as number) ?? 0,
-      },
-    }),
-    [],
-  );
-
   const { createAnimationRef } = useAnimationRegistration(barId);
 
   const index = parseInt(barId.split("-")[1]);
-  const hue = ((10 + index * 22) / 720) * 360;
+  const t = frequencyRanges.length > 1 ? index / (frequencyRanges.length - 1) : 0;
+  const hue = theme.hueStart + (theme.hueEnd - theme.hueStart) * t;
+  const sat = theme.saturation;
 
   const [minHz, maxHz] = index < frequencyRanges.length ? frequencyRanges[index] : [0, 0];
   const formatHz = (hz: number) => (hz >= 1000 ? `${(hz / 1000).toFixed(1)}kHz` : `${hz}Hz`);
   const freqLabel = `${formatHz(minHz)} - ${formatHz(maxHz)}`;
-
-  const glowSpread = barWidth * 0.25;
 
   return (
     <div
@@ -165,22 +164,12 @@ export const EqualizerBar: React.FC<{
       }}
     >
       <div
-        ref={createAnimationRef("glow", glowAnimations)}
-        className={styles.glow}
-        style={{
-          left: `-${glowSpread}px`,
-          right: `-${glowSpread}px`,
-          background: `radial-gradient(ellipse, hsla(${hue}, 70%, 60%, 0.6), transparent)`,
-        }}
-      />
-
-      <div
         ref={createAnimationRef("bar", animations)}
         className={styles.bar}
         style={{
           width: `${barWidth}px`,
-          background: `linear-gradient(180deg, hsl(${hue}, 70%, 70%) 0%, hsl(${hue}, 70%, 50%) 100%)`,
-          boxShadow: `0 0 20px hsla(${hue}, 70%, 60%, 0.5)`,
+          background: `linear-gradient(180deg, hsl(${hue}, ${sat}%, 65%) 0%, hsl(${hue}, ${sat}%, 45%) 100%)`,
+          boxShadow: `0 0 8px hsla(${hue}, ${sat}%, 50%, 0.3)`,
         }}
       />
 
@@ -189,8 +178,7 @@ export const EqualizerBar: React.FC<{
         className={styles.cap}
         style={{
           width: `${barWidth}px`,
-          background: `linear-gradient(180deg, hsl(${hue}, 70%, 75%) 0%, hsl(${hue}, 70%, 70%) 100%)`,
-          boxShadow: `0 0 20px hsla(${hue}, 70%, 60%, 0.5)`,
+          background: `hsl(${hue}, ${sat}%, 70%)`,
         }}
       />
     </div>
@@ -202,6 +190,7 @@ export interface VisualizerDisplayProps {
   barWidth: number;
   frequencyRanges: readonly (readonly [number, number])[];
   springMode: SpringConfigKey;
+  theme: ThemeConfig;
   children?: React.ReactNode;
 }
 
@@ -210,6 +199,7 @@ export const VisualizerDisplay: React.FC<VisualizerDisplayProps> = ({
   barWidth,
   frequencyRanges,
   springMode,
+  theme,
   children,
 }) => {
   return (
@@ -221,6 +211,7 @@ export const VisualizerDisplay: React.FC<VisualizerDisplayProps> = ({
           frequencyRanges={frequencyRanges}
           barWidth={barWidth}
           springMode={springMode}
+          theme={theme}
         />
       ))}
       {children}

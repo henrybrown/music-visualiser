@@ -3,7 +3,7 @@ import {
   AnimationEngineProvider,
   useAnimationEngine,
 } from "../animations/animation-engine-context";
-import { VisualizerDisplay, subdivideFrequencyRanges } from "./visualizer-display";
+import { VisualizerDisplay, subdivideFrequencyRanges, COLOR_THEMES, type ColorTheme } from "./visualizer-display";
 import { ControlPanel, SMOOTHING_TIME_CONSTANT } from "./control-panel";
 import EQOverlay, { getDefaultEQNodes, type EQControlNode } from "./equalizer-components";
 import { useAudioAnalyser } from "./audio-analysis";
@@ -25,6 +25,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const [audioRefreshRate, setAudioRefreshRate] = useState(100);
   const [springMode, setSpringMode] = useState<SpringConfigKey>("extreme");
   const [changeThreshold, setChangeThreshold] = useState(0.1);
+  const [colorTheme, setColorTheme] = useState<ColorTheme>("cool");
 
   const minDecibels = -255 + dbRangeMin;
   const maxDecibels = -255 + dbRangeMax;
@@ -187,20 +188,41 @@ const MusicVisualizerDemoInner: React.FC = () => {
     setAudioRefreshRate(100);
     setSpringMode("extreme");
     setChangeThreshold(0.1);
+    setColorTheme("cool");
     setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
   }, [BAR_COUNT]);
 
   return (
     <div className={styles.container}>
       <div className={styles.visualizerWrapper}>
-        {/* Eye Toggle - Top Right, Above Visualizer */}
-        <button
-          onClick={() => setShowEQ(!showEQ)}
-          className={`${styles.eyeToggle} ${showEQ ? styles.active : ''}`}
-          title={showEQ ? "Hide EQ" : "Show EQ"}
-        >
-          <span className={`${styles.eyeIcon} ${!showEQ ? styles.hidden : ''}`}>👁</span>
-        </button>
+        {/* Top toolbar */}
+        <div className={styles.topBar}>
+          <button
+            onClick={() => setShowControls(!showControls)}
+            className={styles.settingsButton}
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="6" x2="20" y2="6"/>
+              <circle cx="8" cy="6" r="2" fill="currentColor"/>
+              <line x1="4" y1="12" x2="20" y2="12"/>
+              <circle cx="16" cy="12" r="2" fill="currentColor"/>
+              <line x1="4" y1="18" x2="20" y2="18"/>
+              <circle cx="11" cy="18" r="2" fill="currentColor"/>
+            </svg>
+          </button>
+          <button
+            onClick={() => setShowEQ(!showEQ)}
+            className={`${styles.eyeToggle} ${showEQ ? styles.active : ''}`}
+            title={showEQ ? "Hide EQ" : "Show EQ"}
+          >
+            <span className={`${styles.eyeIcon} ${!showEQ ? styles.hidden : ''}`}>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </span>
+          </button>
+        </div>
 
         {/* Visualizer Display */}
         <div ref={visualizerWrapperRef} className={styles.visualizerContainer}>
@@ -209,6 +231,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
             barWidth={barWidth}
             frequencyRanges={activeFrequencyRanges}
             springMode={springMode}
+            theme={COLOR_THEMES[colorTheme]}
           >
             {showEQ && (
               <EQOverlay
@@ -273,14 +296,14 @@ const MusicVisualizerDemoInner: React.FC = () => {
               disabled={isPlaying}
               className={`${styles.controlButton} ${isPlaying ? styles.disabled : ''}`}
             >
-              ▶
+              <svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 4l16 8-16 8V4z"/></svg>
             </button>
             <button
               onClick={handleStop}
               disabled={!isPlaying}
               className={`${styles.controlButton} ${!isPlaying ? styles.disabled : ''}`}
             >
-              ⏹
+              <svg viewBox="0 0 24 24" width="20" height="20"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>
             </button>
           </div>
 
@@ -300,19 +323,11 @@ const MusicVisualizerDemoInner: React.FC = () => {
         </div>
       </div>
 
-      {/* Settings Button - Fixed Bottom Right */}
-      <button
-        onClick={() => setShowControls(!showControls)}
-        className={styles.settingsButton}
-      >
-        ⚙️
-      </button>
-
-      {/* Settings Drawer */}
+      {/* Settings Modal */}
       {showControls && (
         <>
           <div className={styles.settingsOverlay} onClick={() => setShowControls(false)} />
-          <div className={styles.settingsDrawer}>
+          <div className={styles.settingsModal}>
             <div className={styles.settingsHeader}>
               <h2>Settings</h2>
               <button onClick={() => setShowControls(false)} className={styles.closeButton}>
@@ -333,6 +348,8 @@ const MusicVisualizerDemoInner: React.FC = () => {
               onSpringModeChange={setSpringMode}
               changeThreshold={changeThreshold}
               onChangeThresholdChange={setChangeThreshold}
+              colorTheme={colorTheme}
+              onColorThemeChange={setColorTheme}
               onResetAll={handleResetAll}
               isPlaying={isPlaying}
             />

@@ -11,11 +11,10 @@
 }
 
 .visualizerWrapper {
-  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  background: var(--surface);
   border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   position: relative;
   width: 100%;
   display: flex;
@@ -38,59 +37,61 @@
   gap: 3px;
   overflow: visible;
   background: #0a0a0f;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .frequencyLabels {
   position: relative;
   height: 20px;
   font-size: 0.7rem;
-  color: #64748b;
+  color: var(--text-secondary);
   display: flex;
   justify-content: space-between;
   padding: 0 1rem;
   margin: 0.5rem 0 1rem 0;
 }
 
-/* Eye Toggle (Top Right, Above Visualizer) */
+/* Top Bar */
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+/* Eye Toggle */
 .eyeToggle {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  background: transparent;
+  border: none;
   padding: 0.5rem;
   cursor: pointer;
-  transition: all 0.2s;
-  font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
+  transition: color 0.2s;
+  color: var(--text-dim);
   display: flex;
   align-items: center;
   justify-content: center;
-  align-self: flex-end;
-  margin-bottom: 0.5rem;
   width: 36px;
   height: 36px;
 }
 
 .eyeToggle:hover {
-  background: rgba(0, 0, 0, 0.4);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-secondary);
 }
 
 .eyeToggle.active {
-  color: #667eea;
-  border-color: rgba(102, 126, 234, 0.3);
+  color: var(--accent);
 }
 
 .eyeIcon {
-  display: inline-block;
-  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
 }
 
 .eyeIcon.hidden {
   opacity: 0.3;
-  text-decoration: line-through;
 }
 
 /* Controls Row Layout */
@@ -122,36 +123,29 @@
 .densityToggle {
   display: flex;
   gap: 0.4rem;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 0.4rem;
-  border-radius: 8px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .densityOption {
   padding: 0.4rem 0.8rem;
   background: transparent;
-  color: rgba(255, 255, 255, 0.5);
-  border: 1px solid transparent;
+  color: var(--text-dim);
+  border: none;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 600;
-  transition: all 0.2s;
+  transition: color 0.2s, background 0.2s;
   min-width: 40px;
   text-align: center;
 }
 
 .densityOption:hover {
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
 }
 
 .densityOption.active {
   color: white;
-  background: rgba(102, 126, 234, 0.3);
-  border-color: rgba(102, 126, 234, 0.5);
+  background: rgba(59, 130, 246, 0.2);
 }
 
 /* Media Control Buttons */
@@ -164,23 +158,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.3rem;
-  transition: all 0.2s;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  transition: opacity 0.2s;
+  background: var(--accent);
   color: white;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+  opacity: 0.85;
 }
 
 .controlButton:hover:not(.disabled) {
-  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.6);
-  transform: scale(1.1);
+  opacity: 1;
 }
 
 .controlButton.disabled {
   opacity: 0.3;
   cursor: not-allowed;
-  box-shadow: none;
-  transform: none;
+}
+
+.controlButton svg {
+  width: 20px;
+  height: 20px;
+  fill: white;
 }
 
 /* Dice Button */
@@ -188,78 +184,65 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: opacity 0.2s;
   font-size: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   line-height: 1;
+  opacity: 0.7;
 }
 
 .diceButton:hover {
+  opacity: 1;
   transform: rotate(15deg) scale(1.1);
 }
 
 /* Settings Button */
 .settingsButton {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  transition: all 0.2s;
-  backdrop-filter: blur(10px);
-  z-index: 100;
+  transition: color 0.2s;
+  color: var(--text-dim);
+  width: 36px;
+  height: 36px;
+  padding: 0.5rem;
 }
 
 .settingsButton:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: rotate(90deg);
+  color: var(--text-secondary);
 }
 
-/* Settings Drawer */
+/* Settings Modal */
 .settingsOverlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.6);
   z-index: 200;
 }
 
-.settingsDrawer {
+.settingsModal {
   position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 400px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 420px;
   max-width: 90vw;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+  max-height: 80vh;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   z-index: 300;
   overflow-y: auto;
   padding: 2rem;
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
 }
 
 .settingsHeader {
@@ -268,7 +251,7 @@
   align-items: center;
   margin-bottom: 2rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--border);
 }
 
 .settingsHeader h2 {
@@ -282,7 +265,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   border: none;
   cursor: pointer;
   display: flex;
@@ -290,15 +273,14 @@
   justify-content: center;
   font-size: 1.2rem;
   color: white;
-  transition: all 0.2s;
+  transition: background 0.2s;
 }
 
 .closeButton:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: rotate(90deg);
+  background: rgba(255, 255, 255, 0.15);
 }
 
-/* Bar Container (keeping for hover tooltips) */
+/* Bar Container (hover tooltips) */
 .barContainer {
   position: relative;
   cursor: pointer;
@@ -315,47 +297,21 @@
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%) translateY(-8px);
-  background: rgba(0, 0, 0, 0.95);
+  background: rgba(0, 0, 0, 0.9);
   color: #fff;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 0.8rem;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
   font-weight: 600;
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
-  z-index: 20;
-  font-family: "Monaco", "Courier New", monospace;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-.barContainer::after {
-  content: "";
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(-2px);
-  border: 6px solid transparent;
-  border-top-color: rgba(0, 0, 0, 0.95);
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
+  transition: opacity 0.15s;
   z-index: 20;
 }
 
-.barContainer:hover::before,
-.barContainer:hover::after {
+.barContainer:hover::before {
   opacity: 1;
-  transform: translateX(-50%) translateY(-4px);
-}
-
-.barContainer:hover::after {
-  transform: translateX(-50%) translateY(0px);
 }
 
 /* Responsive Design */
@@ -368,8 +324,8 @@
     height: 300px;
   }
 
-  .settingsDrawer {
-    width: 100%;
+  .settingsModal {
+    width: 90vw;
   }
 
   .controlsRow {
@@ -395,19 +351,10 @@
   .controlButton {
     width: 48px;
     height: 48px;
-    font-size: 1.1rem;
-  }
-
-  .settingsButton {
-    bottom: 1rem;
-    right: 1rem;
-    width: 48px;
-    height: 48px;
   }
 
   .eyeToggle {
     width: 32px;
     height: 32px;
-    font-size: 1rem;
   }
 }

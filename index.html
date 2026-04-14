@@ -8,7 +8,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet" />
     <title>Music Visualiser</title>
     <style>
-      * { font-family: 'Nunito', sans-serif; }
+      :root {
+        --bg: #101012;
+        --surface: #141418;
+        --accent: #3b82f6;
+        --text-primary: rgba(255, 255, 255, 0.9);
+        --text-secondary: rgba(255, 255, 255, 0.5);
+        --text-dim: rgba(255, 255, 255, 0.3);
+        --border: rgba(255, 255, 255, 0.08);
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Nunito', sans-serif; }
+      body { background: var(--bg); color: var(--text-primary); }
     </style>
   </head>
   <body>

@@ -1,5 +1,6 @@
 import React from "react";
 import { SPRING_CONFIGS } from "../animations";
+import { COLOR_THEMES, type ColorTheme } from "./visualizer-display";
 import styles from "./control-panel.module.css";
 
 export const SMOOTHING_TIME_CONSTANT = 0.8;
@@ -17,6 +18,8 @@ export interface ControlPanelProps {
   onSpringModeChange: (value: keyof typeof SPRING_CONFIGS) => void;
   changeThreshold: number;
   onChangeThresholdChange: (value: number) => void;
+  colorTheme: ColorTheme;
+  onColorThemeChange: (value: ColorTheme) => void;
   onResetAll: () => void;
   isPlaying: boolean;
 }
@@ -34,6 +37,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onSpringModeChange,
   changeThreshold,
   onChangeThresholdChange,
+  colorTheme,
+  onColorThemeChange,
   onResetAll,
   isPlaying,
 }) => {
@@ -42,6 +47,33 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <div className={styles.controlPanel}>
+      {/* SECTION: Color Theme */}
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>Color Theme</h3>
+        <div className={styles.themeGrid}>
+          {(Object.keys(COLOR_THEMES) as ColorTheme[]).map((key) => {
+            const theme = COLOR_THEMES[key];
+            const steps = 8;
+            const colors = Array.from({ length: steps }, (_, i) => {
+              const t = i / (steps - 1);
+              const hue = theme.hueStart + (theme.hueEnd - theme.hueStart) * t;
+              return `hsl(${hue}, ${theme.saturation}%, 55%)`;
+            });
+            const gradient = `linear-gradient(90deg, ${colors.join(", ")})`;
+            return (
+              <button
+                key={key}
+                onClick={() => onColorThemeChange(key)}
+                className={`${styles.themeOption} ${colorTheme === key ? styles.themeActive : ""}`}
+              >
+                <div className={styles.themeSwatch} style={{ background: gradient }} />
+                <span className={styles.themeLabel}>{key.charAt(0).toUpperCase() + key.slice(1)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* SECTION 1: Spring Physics */}
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Spring Physics</h3>

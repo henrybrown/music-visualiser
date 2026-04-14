@@ -64,7 +64,7 @@
 }
 
 .controlNodeDragging {
-  filter: drop-shadow(0 6px 16px rgba(59, 130, 246, 1));
+  filter: drop-shadow(0 2px 6px rgba(59, 130, 246, 0.5));
   transition: none;
 }
 
