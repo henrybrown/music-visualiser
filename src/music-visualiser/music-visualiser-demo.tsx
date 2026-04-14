@@ -18,7 +18,7 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const [smoothing, setSmoothing] = useState(SMOOTHING_TIME_CONSTANT);
   const [dbRangeMin, setDbRangeMin] = useState(170);
   const [dbRangeMax, setDbRangeMax] = useState(245);
-  const [barDensity, setBarDensity] = useState<1 | 2 | 4>(1);
+  const [barDensity, setBarDensity] = useState<1 | 2 | 4>(2);
   const [showControls, setShowControls] = useState(false);
   const [showEQ, setShowEQ] = useState(true);
   const [eqControlNodes, setEqControlNodes] = useState<EQControlNode[]>([]);
@@ -26,6 +26,10 @@ const MusicVisualizerDemoInner: React.FC = () => {
   const [springMode, setSpringMode] = useState<SpringConfigKey>("extreme");
   const [changeThreshold, setChangeThreshold] = useState(0.1);
   const [colorTheme, setColorTheme] = useState<ColorTheme>("cool");
+  const [audioSrc, setAudioSrc] = useState("/memphis-trap.mp3");
+  const [audioName, setAudioName] = useState("memphis-trap.mp3");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const minDecibels = -255 + dbRangeMin;
   const maxDecibels = -255 + dbRangeMax;
@@ -77,14 +81,25 @@ const MusicVisualizerDemoInner: React.FC = () => {
     audioAnalyser,
   );
 
+  const handleFileLoad = useCallback((file: File) => {
+    if (!file.type.startsWith("audio/")) return;
+    if (isPlaying) {
+      visualizer.stop();
+      setIsPlaying(false);
+    }
+    const url = URL.createObjectURL(file);
+    setAudioSrc(url);
+    setAudioName(file.name);
+  }, [isPlaying, visualizer]);
+
   const handlePlay = useCallback(async () => {
     try {
-      await visualizer.play("/sample_audio_for_animation_demo.wav");
+      await visualizer.play(audioSrc);
       setIsPlaying(true);
     } catch (error) {
       setIsPlaying(false);
     }
-  }, [visualizer]);
+  }, [visualizer, audioSrc]);
 
   const handleStop = useCallback(() => {
     visualizer.stop();
@@ -184,16 +199,40 @@ const MusicVisualizerDemoInner: React.FC = () => {
     setSmoothing(SMOOTHING_TIME_CONSTANT);
     setDbRangeMin(170);
     setDbRangeMax(245);
-    setBarDensity(1);
+    setBarDensity(2);
     setAudioRefreshRate(100);
     setSpringMode("extreme");
     setChangeThreshold(0.1);
     setColorTheme("cool");
+    setAudioSrc("/memphis-trap.mp3");
+    setAudioName("memphis-trap.mp3");
     setEqControlNodes(getDefaultEQNodes(BAR_COUNT));
   }, [BAR_COUNT]);
 
   return (
-    <div className={styles.container}>
+    <div
+      className={styles.container}
+      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+      onDragLeave={(e) => { if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false); }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        const file = e.dataTransfer.files[0];
+        if (file) handleFileLoad(file);
+      }}
+    >
+      {isDragOver && <div className={styles.dropOverlay}>Drop audio file</div>}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleFileLoad(file);
+          e.target.value = "";
+        }}
+      />
       <div className={styles.visualizerWrapper}>
         {/* Top toolbar */}
         <div className={styles.topBar}>
@@ -263,13 +302,29 @@ const MusicVisualizerDemoInner: React.FC = () => {
           </div>
         </div>
 
+        {/* Audio file picker */}
+        <div className={styles.audioFile}>
+          <button
+            className={styles.audioFileButton}
+            onClick={() => fileInputRef.current?.click()}
+            title="Choose audio file"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </button>
+          <span className={styles.audioFileName}>{audioName}</span>
+        </div>
+
         {/* Controls Row: Density | Play/Stop | Dice */}
         <div className={styles.controlsRow}>
           {/* Left: Density Toggle */}
           <div className={styles.controlsLeft}>
             <div className={styles.densityToggle}>
               <button
-                onClick={() => setBarDensity(1)}
+                onClick={() => setBarDensity(2)}
                 className={`${styles.densityOption} ${barDensity === 1 ? styles.active : ''}`}
               >
                 32

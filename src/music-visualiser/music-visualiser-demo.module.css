@@ -94,6 +94,56 @@
   opacity: 0.3;
 }
 
+/* Drop Overlay */
+.dropOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(59, 130, 246, 0.08);
+  border: 2px dashed var(--accent);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--accent);
+  pointer-events: none;
+}
+
+/* Audio File Picker */
+.audioFile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.audioFileButton {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  transition: color 0.2s;
+}
+
+.audioFileButton:hover {
+  color: var(--text-secondary);
+}
+
+.audioFileName {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Controls Row Layout */
 .controlsRow {
   display: grid;
