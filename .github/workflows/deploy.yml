@@ -42,4 +42,4 @@ jobs:
       - name: Restart container
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.CITADEL_DEPLOY_HOST }} \
-            'docker restart citadel-music-visualiser 2>/dev/null || true'
+            'docker exec citadel-nginx nginx -s reload 2>/dev/null || true'
