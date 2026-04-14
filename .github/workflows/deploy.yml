@@ -33,6 +33,8 @@ jobs:
 
       - name: Deploy to server
         run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.CITADEL_DEPLOY_HOST }} \
+            'mkdir -p /opt/citadel/demos/music-visualiser/dist'
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key" \
             dist/ ${{ secrets.DEPLOY_USER }}@${{ secrets.CITADEL_DEPLOY_HOST }}:/opt/citadel/demos/music-visualiser/dist/
